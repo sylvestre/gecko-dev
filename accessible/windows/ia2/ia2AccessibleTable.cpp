@@ -26,8 +26,7 @@ using namespace mozilla::a11y;
 STDMETHODIMP
 ia2AccessibleTable::QueryInterface(REFIID iid, void** ppv)
 {
-  if (!ppv)
-    return E_INVALIDARG;
+  if (!ppv) return E_INVALIDARG;
 
   *ppv = nullptr;
 
@@ -51,7 +50,8 @@ ia2AccessibleTable::QueryInterface(REFIID iid, void** ppv)
 // IAccessibleTable
 
 STDMETHODIMP
-ia2AccessibleTable::get_accessibleAt(long aRowIdx, long aColIdx,
+ia2AccessibleTable::get_accessibleAt(long aRowIdx,
+                                     long aColIdx,
                                      IUnknown** aAccessible)
 {
   return get_cellAt(aRowIdx, aColIdx, aAccessible);
@@ -60,31 +60,25 @@ ia2AccessibleTable::get_accessibleAt(long aRowIdx, long aColIdx,
 STDMETHODIMP
 ia2AccessibleTable::get_caption(IUnknown** aAccessible)
 {
-  if (!aAccessible)
-    return E_INVALIDARG;
+  if (!aAccessible) return E_INVALIDARG;
 
   *aAccessible = nullptr;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   AccessibleWrap* caption = static_cast<AccessibleWrap*>(mTable->Caption());
-  if (!caption)
-    return S_FALSE;
+  if (!caption) return S_FALSE;
 
   (*aAccessible = static_cast<IAccessible*>(caption))->AddRef();
   return S_OK;
 }
 
 STDMETHODIMP
-ia2AccessibleTable::get_childIndex(long aRowIdx, long aColIdx,
-                                   long* aChildIdx)
+ia2AccessibleTable::get_childIndex(long aRowIdx, long aColIdx, long* aChildIdx)
 {
-  if (!aChildIdx)
-    return E_INVALIDARG;
+  if (!aChildIdx) return E_INVALIDARG;
 
   *aChildIdx = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aRowIdx < 0 || aColIdx < 0 ||
       static_cast<uint32_t>(aRowIdx) >= mTable->RowCount() ||
@@ -98,35 +92,29 @@ ia2AccessibleTable::get_childIndex(long aRowIdx, long aColIdx,
 STDMETHODIMP
 ia2AccessibleTable::get_columnDescription(long aColIdx, BSTR* aDescription)
 {
-  if (!aDescription)
-    return E_INVALIDARG;
+  if (!aDescription) return E_INVALIDARG;
 
   *aDescription = nullptr;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= mTable->ColCount())
     return E_INVALIDARG;
 
   nsAutoString descr;
   mTable->ColDescription(aColIdx, descr);
-  if (descr.IsEmpty())
-    return S_FALSE;
+  if (descr.IsEmpty()) return S_FALSE;
 
   *aDescription = ::SysAllocStringLen(descr.get(), descr.Length());
   return *aDescription ? S_OK : E_OUTOFMEMORY;
 }
 
 STDMETHODIMP
-ia2AccessibleTable::get_columnExtentAt(long aRowIdx, long aColIdx,
-                                      long* aSpan)
+ia2AccessibleTable::get_columnExtentAt(long aRowIdx, long aColIdx, long* aSpan)
 {
-  if (!aSpan)
-    return E_INVALIDARG;
+  if (!aSpan) return E_INVALIDARG;
 
   *aSpan = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aRowIdx < 0 || aColIdx < 0 ||
       static_cast<uint32_t>(aRowIdx) >= mTable->RowCount() ||
@@ -139,10 +127,9 @@ ia2AccessibleTable::get_columnExtentAt(long aRowIdx, long aColIdx,
 
 STDMETHODIMP
 ia2AccessibleTable::get_columnHeader(IAccessibleTable** aAccessibleTable,
-                                    long* aStartingRowIndex)
+                                     long* aStartingRowIndex)
 {
-  if (!aAccessibleTable || !aStartingRowIndex)
-    return E_INVALIDARG;
+  if (!aAccessibleTable || !aStartingRowIndex) return E_INVALIDARG;
 
   *aAccessibleTable = nullptr;
   *aStartingRowIndex = -1;
@@ -152,15 +139,13 @@ ia2AccessibleTable::get_columnHeader(IAccessibleTable** aAccessibleTable,
 STDMETHODIMP
 ia2AccessibleTable::get_columnIndex(long aCellIdx, long* aColIdx)
 {
-  if (!aColIdx)
-    return E_INVALIDARG;
+  if (!aColIdx) return E_INVALIDARG;
 
   *aColIdx = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
-  if (aCellIdx < 0 ||
-      static_cast<uint32_t>(aCellIdx) >= mTable->ColCount() * mTable->RowCount())
+  if (aCellIdx < 0 || static_cast<uint32_t>(aCellIdx) >=
+                          mTable->ColCount() * mTable->RowCount())
     return E_INVALIDARG;
 
   *aColIdx = mTable->ColIndexAt(aCellIdx);
@@ -170,12 +155,10 @@ ia2AccessibleTable::get_columnIndex(long aCellIdx, long* aColIdx)
 STDMETHODIMP
 ia2AccessibleTable::get_nColumns(long* aColCount)
 {
-  if (!aColCount)
-    return E_INVALIDARG;
+  if (!aColCount) return E_INVALIDARG;
 
   *aColCount = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   *aColCount = mTable->ColCount();
   return S_OK;
@@ -184,12 +167,10 @@ ia2AccessibleTable::get_nColumns(long* aColCount)
 STDMETHODIMP
 ia2AccessibleTable::get_nRows(long* aRowCount)
 {
-  if (!aRowCount)
-    return E_INVALIDARG;
+  if (!aRowCount) return E_INVALIDARG;
 
   *aRowCount = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   *aRowCount = mTable->RowCount();
   return S_OK;
@@ -204,12 +185,10 @@ ia2AccessibleTable::get_nSelectedChildren(long* aChildCount)
 STDMETHODIMP
 ia2AccessibleTable::get_nSelectedColumns(long* aColCount)
 {
-  if (!aColCount)
-    return E_INVALIDARG;
+  if (!aColCount) return E_INVALIDARG;
 
   *aColCount = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   *aColCount = mTable->SelectedColCount();
   return S_OK;
@@ -218,12 +197,10 @@ ia2AccessibleTable::get_nSelectedColumns(long* aColCount)
 STDMETHODIMP
 ia2AccessibleTable::get_nSelectedRows(long* aRowCount)
 {
-  if (!aRowCount)
-    return E_INVALIDARG;
+  if (!aRowCount) return E_INVALIDARG;
 
   *aRowCount = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   *aRowCount = mTable->SelectedRowCount();
 
@@ -233,20 +210,17 @@ ia2AccessibleTable::get_nSelectedRows(long* aRowCount)
 STDMETHODIMP
 ia2AccessibleTable::get_rowDescription(long aRowIdx, BSTR* aDescription)
 {
-  if (!aDescription)
-    return E_INVALIDARG;
+  if (!aDescription) return E_INVALIDARG;
 
   *aDescription = nullptr;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= mTable->RowCount())
     return E_INVALIDARG;
 
   nsAutoString descr;
   mTable->RowDescription(aRowIdx, descr);
-  if (descr.IsEmpty())
-    return S_FALSE;
+  if (descr.IsEmpty()) return S_FALSE;
 
   *aDescription = ::SysAllocStringLen(descr.get(), descr.Length());
   return *aDescription ? S_OK : E_OUTOFMEMORY;
@@ -255,12 +229,10 @@ ia2AccessibleTable::get_rowDescription(long aRowIdx, BSTR* aDescription)
 STDMETHODIMP
 ia2AccessibleTable::get_rowExtentAt(long aRowIdx, long aColIdx, long* aSpan)
 {
-  if (!aSpan)
-    return E_INVALIDARG;
+  if (!aSpan) return E_INVALIDARG;
 
   *aSpan = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aRowIdx < 0 || aColIdx < 0 ||
       static_cast<uint32_t>(aRowIdx) >= mTable->RowCount() ||
@@ -275,8 +247,7 @@ STDMETHODIMP
 ia2AccessibleTable::get_rowHeader(IAccessibleTable** aAccessibleTable,
                                   long* aStartingColumnIndex)
 {
-  if (!aAccessibleTable || !aStartingColumnIndex)
-    return E_INVALIDARG;
+  if (!aAccessibleTable || !aStartingColumnIndex) return E_INVALIDARG;
 
   *aAccessibleTable = nullptr;
   *aStartingColumnIndex = -1;
@@ -286,15 +257,13 @@ ia2AccessibleTable::get_rowHeader(IAccessibleTable** aAccessibleTable,
 STDMETHODIMP
 ia2AccessibleTable::get_rowIndex(long aCellIdx, long* aRowIdx)
 {
-  if (!aRowIdx)
-    return E_INVALIDARG;
+  if (!aRowIdx) return E_INVALIDARG;
 
   *aRowIdx = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
-  if (aCellIdx < 0 ||
-      static_cast<uint32_t>(aCellIdx) >= mTable->ColCount() * mTable->RowCount())
+  if (aCellIdx < 0 || static_cast<uint32_t>(aCellIdx) >=
+                          mTable->ColCount() * mTable->RowCount())
     return E_INVALIDARG;
 
   *aRowIdx = mTable->RowIndexAt(aCellIdx);
@@ -302,34 +271,32 @@ ia2AccessibleTable::get_rowIndex(long aCellIdx, long* aRowIdx)
 }
 
 STDMETHODIMP
-ia2AccessibleTable::get_selectedChildren(long aMaxChildren, long** aChildren,
+ia2AccessibleTable::get_selectedChildren(long aMaxChildren,
+                                         long** aChildren,
                                          long* aNChildren)
 {
-  if (!aChildren || !aNChildren)
-    return E_INVALIDARG;
+  if (!aChildren || !aNChildren) return E_INVALIDARG;
 
   *aChildren = nullptr;
   *aNChildren = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   AutoTArray<uint32_t, 30> cellIndices;
   mTable->SelectedCellIndices(&cellIndices);
 
   uint32_t maxCells = cellIndices.Length();
-  if (maxCells == 0)
-    return S_FALSE;
+  if (maxCells == 0) return S_FALSE;
 
   *aChildren = static_cast<LONG*>(moz_xmalloc(sizeof(LONG) * maxCells));
   *aNChildren = maxCells;
-  for (uint32_t i = 0; i < maxCells; i++)
-    (*aChildren)[i] = cellIndices[i];
+  for (uint32_t i = 0; i < maxCells; i++) (*aChildren)[i] = cellIndices[i];
 
   return S_OK;
 }
 
 STDMETHODIMP
-ia2AccessibleTable::get_selectedColumns(long aMaxColumns, long** aColumns,
+ia2AccessibleTable::get_selectedColumns(long aMaxColumns,
+                                        long** aColumns,
                                         long* aNColumns)
 {
   return get_selectedColumns(aColumns, aNColumns);
@@ -344,8 +311,7 @@ ia2AccessibleTable::get_selectedRows(long aMaxRows, long** aRows, long* aNRows)
 STDMETHODIMP
 ia2AccessibleTable::get_summary(IUnknown** aAccessible)
 {
-  if (!aAccessible)
-    return E_INVALIDARG;
+  if (!aAccessible) return E_INVALIDARG;
 
   // Neither html:table nor xul:tree nor ARIA grid/tree have an ability to
   // link an accessible object to specify a summary. There is closes method
@@ -359,12 +325,10 @@ ia2AccessibleTable::get_summary(IUnknown** aAccessible)
 STDMETHODIMP
 ia2AccessibleTable::get_isColumnSelected(long aColIdx, boolean* aIsSelected)
 {
-  if (!aIsSelected)
-    return E_INVALIDARG;
+  if (!aIsSelected) return E_INVALIDARG;
 
   *aIsSelected = false;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= mTable->ColCount())
     return E_INVALIDARG;
@@ -376,12 +340,10 @@ ia2AccessibleTable::get_isColumnSelected(long aColIdx, boolean* aIsSelected)
 STDMETHODIMP
 ia2AccessibleTable::get_isRowSelected(long aRowIdx, boolean* aIsSelected)
 {
-  if (!aIsSelected)
-    return E_INVALIDARG;
+  if (!aIsSelected) return E_INVALIDARG;
 
   *aIsSelected = false;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= mTable->RowCount())
     return E_INVALIDARG;
@@ -391,15 +353,14 @@ ia2AccessibleTable::get_isRowSelected(long aRowIdx, boolean* aIsSelected)
 }
 
 STDMETHODIMP
-ia2AccessibleTable::get_isSelected(long aRowIdx, long aColIdx,
+ia2AccessibleTable::get_isSelected(long aRowIdx,
+                                   long aColIdx,
                                    boolean* aIsSelected)
 {
-  if (!aIsSelected)
-    return E_INVALIDARG;
+  if (!aIsSelected) return E_INVALIDARG;
 
   *aIsSelected = false;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aRowIdx < 0 || aColIdx < 0 ||
       static_cast<uint32_t>(aColIdx) >= mTable->ColCount() ||
@@ -413,8 +374,7 @@ ia2AccessibleTable::get_isSelected(long aRowIdx, long aColIdx,
 STDMETHODIMP
 ia2AccessibleTable::selectRow(long aRowIdx)
 {
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= mTable->RowCount())
     return E_INVALIDARG;
@@ -426,8 +386,7 @@ ia2AccessibleTable::selectRow(long aRowIdx)
 STDMETHODIMP
 ia2AccessibleTable::selectColumn(long aColIdx)
 {
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= mTable->ColCount())
     return E_INVALIDARG;
@@ -439,8 +398,7 @@ ia2AccessibleTable::selectColumn(long aColIdx)
 STDMETHODIMP
 ia2AccessibleTable::unselectRow(long aRowIdx)
 {
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aRowIdx < 0 || static_cast<uint32_t>(aRowIdx) >= mTable->RowCount())
     return E_INVALIDARG;
@@ -452,8 +410,7 @@ ia2AccessibleTable::unselectRow(long aRowIdx)
 STDMETHODIMP
 ia2AccessibleTable::unselectColumn(long aColIdx)
 {
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   if (aColIdx < 0 || static_cast<uint32_t>(aColIdx) >= mTable->ColCount())
     return E_INVALIDARG;
@@ -463,7 +420,8 @@ ia2AccessibleTable::unselectColumn(long aColIdx)
 }
 
 STDMETHODIMP
-ia2AccessibleTable::get_rowColumnExtentsAtIndex(long aCellIdx, long* aRowIdx,
+ia2AccessibleTable::get_rowColumnExtentsAtIndex(long aCellIdx,
+                                                long* aRowIdx,
                                                 long* aColIdx,
                                                 long* aRowExtents,
                                                 long* aColExtents,
@@ -477,11 +435,10 @@ ia2AccessibleTable::get_rowColumnExtentsAtIndex(long aCellIdx, long* aRowIdx,
   *aRowExtents = 0;
   *aColExtents = 0;
   *aIsSelected = false;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
-  if (aCellIdx < 0 ||
-      static_cast<uint32_t>(aCellIdx) >= mTable->ColCount() * mTable->RowCount())
+  if (aCellIdx < 0 || static_cast<uint32_t>(aCellIdx) >=
+                          mTable->ColCount() * mTable->RowCount())
     return E_INVALIDARG;
 
   int32_t colIdx = 0, rowIdx = 0;
@@ -507,18 +464,15 @@ ia2AccessibleTable::get_modelChange(IA2TableModelChange* aModelChange)
 STDMETHODIMP
 ia2AccessibleTable::get_cellAt(long aRowIdx, long aColIdx, IUnknown** aCell)
 {
-  if (!aCell)
-    return E_INVALIDARG;
+  if (!aCell) return E_INVALIDARG;
 
   *aCell = nullptr;
 
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   AccessibleWrap* cell =
-    static_cast<AccessibleWrap*>(mTable->CellAt(aRowIdx, aColIdx));
-  if (!cell)
-    return E_INVALIDARG;
+      static_cast<AccessibleWrap*>(mTable->CellAt(aRowIdx, aColIdx));
+  if (!cell) return E_INVALIDARG;
 
   (*aCell = static_cast<IAccessible*>(cell))->AddRef();
   return S_OK;
@@ -527,12 +481,10 @@ ia2AccessibleTable::get_cellAt(long aRowIdx, long aColIdx, IUnknown** aCell)
 STDMETHODIMP
 ia2AccessibleTable::get_nSelectedCells(long* aCellCount)
 {
-  if (!aCellCount)
-    return E_INVALIDARG;
+  if (!aCellCount) return E_INVALIDARG;
 
   *aCellCount = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   *aCellCount = mTable->SelectedCellCount();
   return S_OK;
@@ -541,28 +493,23 @@ ia2AccessibleTable::get_nSelectedCells(long* aCellCount)
 STDMETHODIMP
 ia2AccessibleTable::get_selectedCells(IUnknown*** aCells, long* aNSelectedCells)
 {
-  if (!aCells || !aNSelectedCells)
-    return E_INVALIDARG;
+  if (!aCells || !aNSelectedCells) return E_INVALIDARG;
 
   *aCells = nullptr;
   *aNSelectedCells = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   AutoTArray<Accessible*, 30> cells;
   mTable->SelectedCells(&cells);
-  if (cells.IsEmpty())
-    return S_FALSE;
+  if (cells.IsEmpty()) return S_FALSE;
 
-  *aCells =
-    static_cast<IUnknown**>(::CoTaskMemAlloc(sizeof(IUnknown*) *
-                                             cells.Length()));
-  if (!*aCells)
-    return E_OUTOFMEMORY;
+  *aCells = static_cast<IUnknown**>(
+      ::CoTaskMemAlloc(sizeof(IUnknown*) * cells.Length()));
+  if (!*aCells) return E_OUTOFMEMORY;
 
   for (uint32_t i = 0; i < cells.Length(); i++) {
     (*aCells)[i] =
-      static_cast<IAccessible*>(static_cast<AccessibleWrap*>(cells[i]));
+        static_cast<IAccessible*>(static_cast<AccessibleWrap*>(cells[i]));
     ((*aCells)[i])->AddRef();
   }
 
@@ -573,25 +520,21 @@ ia2AccessibleTable::get_selectedCells(IUnknown*** aCells, long* aNSelectedCells)
 STDMETHODIMP
 ia2AccessibleTable::get_selectedColumns(long** aColumns, long* aNColumns)
 {
-  if (!aColumns || !aNColumns)
-    return E_INVALIDARG;
+  if (!aColumns || !aNColumns) return E_INVALIDARG;
 
   *aColumns = nullptr;
   *aNColumns = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   AutoTArray<uint32_t, 30> colIndices;
   mTable->SelectedColIndices(&colIndices);
 
   uint32_t maxCols = colIndices.Length();
-  if (maxCols == 0)
-    return S_FALSE;
+  if (maxCols == 0) return S_FALSE;
 
   *aColumns = static_cast<LONG*>(moz_xmalloc(sizeof(LONG) * maxCols));
   *aNColumns = maxCols;
-  for (uint32_t i = 0; i < maxCols; i++)
-    (*aColumns)[i] = colIndices[i];
+  for (uint32_t i = 0; i < maxCols; i++) (*aColumns)[i] = colIndices[i];
 
   return S_OK;
 }
@@ -599,25 +542,21 @@ ia2AccessibleTable::get_selectedColumns(long** aColumns, long* aNColumns)
 STDMETHODIMP
 ia2AccessibleTable::get_selectedRows(long** aRows, long* aNRows)
 {
-  if (!aRows || !aNRows)
-    return E_INVALIDARG;
+  if (!aRows || !aNRows) return E_INVALIDARG;
 
   *aRows = nullptr;
   *aNRows = 0;
-  if (!mTable)
-    return CO_E_OBJNOTCONNECTED;
+  if (!mTable) return CO_E_OBJNOTCONNECTED;
 
   AutoTArray<uint32_t, 30> rowIndices;
   mTable->SelectedRowIndices(&rowIndices);
 
   uint32_t maxRows = rowIndices.Length();
-  if (maxRows == 0)
-    return S_FALSE;
+  if (maxRows == 0) return S_FALSE;
 
   *aRows = static_cast<LONG*>(moz_xmalloc(sizeof(LONG) * maxRows));
   *aNRows = maxRows;
-  for (uint32_t i = 0; i < maxRows; i++)
-    (*aRows)[i] = rowIndices[i];
+  for (uint32_t i = 0; i < maxRows; i++) (*aRows)[i] = rowIndices[i];
 
   return S_OK;
 }

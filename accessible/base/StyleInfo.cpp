@@ -14,11 +14,11 @@
 using namespace mozilla;
 using namespace mozilla::a11y;
 
-StyleInfo::StyleInfo(dom::Element* aElement, nsIPresShell* aPresShell) :
-  mElement(aElement)
+StyleInfo::StyleInfo(dom::Element* aElement, nsIPresShell* aPresShell)
+    : mElement(aElement)
 {
   mStyleContext =
-    nsComputedDOMStyle::GetStyleContextNoFlush(aElement, nullptr, aPresShell);
+      nsComputedDOMStyle::GetStyleContextNoFlush(aElement, nullptr, aPresShell);
 }
 
 void
@@ -26,8 +26,9 @@ StyleInfo::Display(nsAString& aValue)
 {
   aValue.Truncate();
   AppendASCIItoUTF16(
-    nsCSSProps::ValueToKeyword(mStyleContext->StyleDisplay()->mDisplay,
-                               nsCSSProps::kDisplayKTable), aValue);
+      nsCSSProps::ValueToKeyword(mStyleContext->StyleDisplay()->mDisplay,
+                                 nsCSSProps::kDisplayKTable),
+      aValue);
 }
 
 void
@@ -35,8 +36,9 @@ StyleInfo::TextAlign(nsAString& aValue)
 {
   aValue.Truncate();
   AppendASCIItoUTF16(
-    nsCSSProps::ValueToKeyword(mStyleContext->StyleText()->mTextAlign,
-                               nsCSSProps::kTextAlignKTable), aValue);
+      nsCSSProps::ValueToKeyword(mStyleContext->StyleText()->mTextAlign,
+                                 nsCSSProps::kTextAlignKTable),
+      aValue);
 }
 
 void
@@ -44,8 +46,7 @@ StyleInfo::TextIndent(nsAString& aValue)
 {
   aValue.Truncate();
 
-  const nsStyleCoord& styleCoord =
-    mStyleContext->StyleText()->mTextIndent;
+  const nsStyleCoord& styleCoord = mStyleContext->StyleText()->mTextIndent;
 
   nscoord coordVal = 0;
   switch (styleCoord.GetUnit()) {
@@ -81,7 +82,8 @@ StyleInfo::TextIndent(nsAString& aValue)
 void
 StyleInfo::Margin(Side aSide, nsAString& aValue)
 {
-  MOZ_ASSERT(mElement->GetPrimaryFrame(), " mElement->GetPrimaryFrame() needs to be valid pointer");
+  MOZ_ASSERT(mElement->GetPrimaryFrame(),
+             " mElement->GetPrimaryFrame() needs to be valid pointer");
   aValue.Truncate();
 
   nscoord coordVal = mElement->GetPrimaryFrame()->GetUsedMargin().Side(aSide);
@@ -106,15 +108,14 @@ void
 StyleInfo::FormatFontStyle(const nscoord& aValue, nsAString& aFormattedValue)
 {
   nsCSSKeyword keyword =
-    nsCSSProps::ValueToKeywordEnum(aValue, nsCSSProps::kFontStyleKTable);
+      nsCSSProps::ValueToKeywordEnum(aValue, nsCSSProps::kFontStyleKTable);
   AppendUTF8toUTF16(nsCSSKeywords::GetStringValue(keyword), aFormattedValue);
 }
 
 void
 StyleInfo::FormatTextDecorationStyle(uint8_t aValue, nsAString& aFormattedValue)
 {
-  nsCSSKeyword keyword =
-    nsCSSProps::ValueToKeywordEnum(aValue,
-                                   nsCSSProps::kTextDecorationStyleKTable);
+  nsCSSKeyword keyword = nsCSSProps::ValueToKeywordEnum(
+      aValue, nsCSSProps::kTextDecorationStyleKTable);
   AppendUTF8toUTF16(nsCSSKeywords::GetStringValue(keyword), aFormattedValue);
 }

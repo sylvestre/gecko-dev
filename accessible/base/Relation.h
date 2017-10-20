@@ -20,27 +20,29 @@ namespace a11y {
  */
 class Relation
 {
-public:
-  Relation() : mFirstIter(nullptr), mLastIter(nullptr) { }
+ public:
+  Relation() : mFirstIter(nullptr), mLastIter(nullptr) {}
 
-  explicit Relation(AccIterable* aIter) :
-    mFirstIter(aIter), mLastIter(aIter) { }
+  explicit Relation(AccIterable* aIter) : mFirstIter(aIter), mLastIter(aIter) {}
 
-  explicit Relation(Accessible* aAcc) :
-    mFirstIter(nullptr), mLastIter(nullptr)
-    { AppendTarget(aAcc); }
+  explicit Relation(Accessible* aAcc) : mFirstIter(nullptr), mLastIter(nullptr)
+  {
+    AppendTarget(aAcc);
+  }
 
-  Relation(DocAccessible* aDocument, nsIContent* aContent) :
-    mFirstIter(nullptr), mLastIter(nullptr)
-    { AppendTarget(aDocument, aContent); }
+  Relation(DocAccessible* aDocument, nsIContent* aContent)
+      : mFirstIter(nullptr), mLastIter(nullptr)
+  {
+    AppendTarget(aDocument, aContent);
+  }
 
-  Relation(Relation&& aOther) :
-    mFirstIter(Move(aOther.mFirstIter)), mLastIter(aOther.mLastIter)
+  Relation(Relation&& aOther)
+      : mFirstIter(Move(aOther.mFirstIter)), mLastIter(aOther.mLastIter)
   {
     aOther.mLastIter = nullptr;
   }
 
-  Relation& operator = (Relation&& aRH)
+  Relation& operator=(Relation&& aRH)
   {
     mFirstIter = Move(aRH.mFirstIter);
     mLastIter = aRH.mLastIter;
@@ -63,8 +65,7 @@ public:
    */
   inline void AppendTarget(Accessible* aAcc)
   {
-    if (aAcc)
-      AppendIter(new SingleAccIterator(aAcc));
+    if (aAcc) AppendIter(new SingleAccIterator(aAcc));
   }
 
   /**
@@ -73,8 +74,7 @@ public:
    */
   void AppendTarget(DocAccessible* aDocument, nsIContent* aContent)
   {
-    if (aContent)
-      AppendTarget(aDocument->GetAccessible(aContent));
+    if (aContent) AppendTarget(aDocument->GetAccessible(aContent));
   }
 
   /**
@@ -87,22 +87,20 @@ public:
     while (mFirstIter && !(target = mFirstIter->Next()))
       mFirstIter = std::move(mFirstIter->mNextIter);
 
-    if (!mFirstIter)
-      mLastIter = nullptr;
+    if (!mFirstIter) mLastIter = nullptr;
 
     return target;
   }
 
-private:
-  Relation& operator = (const Relation&) = delete;
+ private:
+  Relation& operator=(const Relation&) = delete;
   Relation(const Relation&) = delete;
 
   std::unique_ptr<AccIterable> mFirstIter;
   AccIterable* mLastIter;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

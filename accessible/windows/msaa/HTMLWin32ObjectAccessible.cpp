@@ -14,10 +14,9 @@ using namespace mozilla::a11y;
 // HTMLWin32ObjectOwnerAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLWin32ObjectOwnerAccessible::
-  HTMLWin32ObjectOwnerAccessible(nsIContent* aContent,
-                                 DocAccessible* aDoc, void* aHwnd) :
-  AccessibleWrap(aContent, aDoc), mHwnd(aHwnd)
+HTMLWin32ObjectOwnerAccessible::HTMLWin32ObjectOwnerAccessible(
+    nsIContent* aContent, DocAccessible* aDoc, void* aHwnd)
+    : AccessibleWrap(aContent, aDoc), mHwnd(aHwnd)
 {
   mStateFlags |= eNoKidsFromDOM;
 
@@ -57,8 +56,8 @@ HTMLWin32ObjectOwnerAccessible::NativelyUnavailable() const
 ////////////////////////////////////////////////////////////////////////////////
 
 HTMLWin32ObjectAccessible::HTMLWin32ObjectAccessible(void* aHwnd,
-                                                     DocAccessible* aDoc) :
-  DummyAccessible(aDoc)
+                                                     DocAccessible* aDoc)
+    : DummyAccessible(aDoc)
 {
   mHwnd = aHwnd;
   if (mHwnd) {
@@ -102,8 +101,8 @@ HTMLWin32ObjectAccessible::GetNativeInterface(void** aNativeAccessible)
 
   if (mHwnd) {
     ::AccessibleObjectFromWindow(static_cast<HWND>(mHwnd),
-                                 OBJID_WINDOW, IID_IAccessible,
+                                 OBJID_WINDOW,
+                                 IID_IAccessible,
                                  aNativeAccessible);
   }
 }
-

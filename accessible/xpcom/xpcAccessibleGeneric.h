@@ -26,20 +26,19 @@ class xpcAccessibleGeneric : public xpcAccessible,
                              public xpcAccessibleSelectable,
                              public xpcAccessibleValue
 {
-public:
-  explicit xpcAccessibleGeneric(Accessible* aInternal) :
-    mIntl(aInternal), mSupportedIfaces(0)
+ public:
+  explicit xpcAccessibleGeneric(Accessible* aInternal)
+      : mIntl(aInternal), mSupportedIfaces(0)
   {
-    if (aInternal->IsSelect())
-      mSupportedIfaces |= eSelectable;
-    if (aInternal->HasNumericValue())
-      mSupportedIfaces |= eValue;
-    if (aInternal->IsLink())
-      mSupportedIfaces |= eHyperLink;
+    if (aInternal->IsSelect()) mSupportedIfaces |= eSelectable;
+    if (aInternal->HasNumericValue()) mSupportedIfaces |= eValue;
+    if (aInternal->IsLink()) mSupportedIfaces |= eHyperLink;
   }
 
-  xpcAccessibleGeneric(ProxyAccessible* aProxy, uint8_t aInterfaces) :
-    mIntl(aProxy), mSupportedIfaces(aInterfaces) {}
+  xpcAccessibleGeneric(ProxyAccessible* aProxy, uint8_t aInterfaces)
+      : mIntl(aProxy), mSupportedIfaces(aInterfaces)
+  {
+  }
 
   NS_DECL_ISUPPORTS
 
@@ -49,12 +48,13 @@ public:
   // xpcAccessibleGeneric
   virtual void Shutdown();
 
-protected:
+ protected:
   virtual ~xpcAccessibleGeneric();
 
   AccessibleOrProxy mIntl;
 
-  enum {
+  enum
+  {
     eSelectable = 1 << 0,
     eValue = 1 << 1,
     eHyperLink = 1 << 2,
@@ -62,7 +62,7 @@ protected:
   };
   uint8_t mSupportedIfaces;
 
-private:
+ private:
   friend class Accessible;
   friend class xpcAccessible;
   friend class xpcAccessibleHyperLink;
@@ -70,7 +70,7 @@ private:
   friend class xpcAccessibleValue;
 
   xpcAccessibleGeneric(const xpcAccessibleGeneric&) = delete;
-  xpcAccessibleGeneric& operator =(const xpcAccessibleGeneric&) = delete;
+  xpcAccessibleGeneric& operator=(const xpcAccessibleGeneric&) = delete;
 };
 
 inline Accessible*
@@ -103,7 +103,7 @@ xpcAccessibleValue::Intl()
   return static_cast<xpcAccessibleGeneric*>(this)->mIntl;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

@@ -21,8 +21,7 @@ class TableAccessible;
  */
 class TableCellAccessible
 {
-public:
-
+ public:
   /**
    * Return the table this cell is in.
    */
@@ -64,7 +63,7 @@ public:
   virtual bool Selected() = 0;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_TableCellAccessible_h__
+#endif  // mozilla_a11y_TableCellAccessible_h__

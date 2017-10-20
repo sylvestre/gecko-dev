@@ -19,7 +19,8 @@ using namespace mozilla::a11y;
 ////////////////////////////////////////////////////////////////////////////////
 // nsISupports
 
-NS_IMPL_QUERY_INTERFACE_INHERITED(xpcAccessibleDocument, xpcAccessibleHyperText,
+NS_IMPL_QUERY_INTERFACE_INHERITED(xpcAccessibleDocument,
+                                  xpcAccessibleHyperText,
                                   nsIAccessibleDocument)
 NS_IMPL_ADDREF_INHERITED(xpcAccessibleDocument, xpcAccessibleHyperText)
 NS_IMETHODIMP_(MozExternalRefCountType) xpcAccessibleDocument::Release(void)
@@ -31,10 +32,10 @@ NS_IMETHODIMP_(MozExternalRefCountType) xpcAccessibleDocument::Release(void)
   if (r == 1 && !mIntl.IsNull() && mCache.Count() == 0) {
     if (mIntl.IsAccessible()) {
       GetAccService()->RemoveFromXPCDocumentCache(
-        mIntl.AsAccessible()->AsDoc());
+          mIntl.AsAccessible()->AsDoc());
     } else {
       GetAccService()->RemoveFromRemoteXPCDocumentCache(
-        mIntl.AsProxy()->AsDoc());
+          mIntl.AsProxy()->AsDoc());
     }
   }
   return r;
@@ -46,8 +47,7 @@ NS_IMETHODIMP_(MozExternalRefCountType) xpcAccessibleDocument::Release(void)
 NS_IMETHODIMP
 xpcAccessibleDocument::GetURL(nsAString& aURL)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   Intl()->URL(aURL);
   return NS_OK;
@@ -56,8 +56,7 @@ xpcAccessibleDocument::GetURL(nsAString& aURL)
 NS_IMETHODIMP
 xpcAccessibleDocument::GetTitle(nsAString& aTitle)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   nsAutoString title;
   Intl()->Title(title);
@@ -68,8 +67,7 @@ xpcAccessibleDocument::GetTitle(nsAString& aTitle)
 NS_IMETHODIMP
 xpcAccessibleDocument::GetMimeType(nsAString& aType)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   Intl()->MimeType(aType);
   return NS_OK;
@@ -78,8 +76,7 @@ xpcAccessibleDocument::GetMimeType(nsAString& aType)
 NS_IMETHODIMP
 xpcAccessibleDocument::GetDocType(nsAString& aType)
 {
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   Intl()->DocType(aType);
   return NS_OK;
@@ -91,8 +88,7 @@ xpcAccessibleDocument::GetDOMDocument(nsIDOMDocument** aDOMDocument)
   NS_ENSURE_ARG_POINTER(aDOMDocument);
   *aDOMDocument = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   if (Intl()->DocumentNode())
     CallQueryInterface(Intl()->DocumentNode(), aDOMDocument);
@@ -106,8 +102,7 @@ xpcAccessibleDocument::GetWindow(mozIDOMWindowProxy** aDOMWindow)
   NS_ENSURE_ARG_POINTER(aDOMWindow);
   *aDOMWindow = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   NS_IF_ADDREF(*aDOMWindow = Intl()->DocumentNode()->GetWindow());
   return NS_OK;
@@ -119,8 +114,7 @@ xpcAccessibleDocument::GetParentDocument(nsIAccessibleDocument** aDocument)
   NS_ENSURE_ARG_POINTER(aDocument);
   *aDocument = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   NS_IF_ADDREF(*aDocument = ToXPCDocument(Intl()->ParentDocument()));
   return NS_OK;
@@ -132,8 +126,7 @@ xpcAccessibleDocument::GetChildDocumentCount(uint32_t* aCount)
   NS_ENSURE_ARG_POINTER(aCount);
   *aCount = 0;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   *aCount = Intl()->ChildDocumentCount();
   return NS_OK;
@@ -146,8 +139,7 @@ xpcAccessibleDocument::GetChildDocumentAt(uint32_t aIndex,
   NS_ENSURE_ARG_POINTER(aDocument);
   *aDocument = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   NS_IF_ADDREF(*aDocument = ToXPCDocument(Intl()->GetChildDocumentAt(aIndex)));
   return *aDocument ? NS_OK : NS_ERROR_INVALID_ARG;
@@ -159,8 +151,7 @@ xpcAccessibleDocument::GetVirtualCursor(nsIAccessiblePivot** aVirtualCursor)
   NS_ENSURE_ARG_POINTER(aVirtualCursor);
   *aVirtualCursor = nullptr;
 
-  if (!Intl())
-    return NS_ERROR_FAILURE;
+  if (!Intl()) return NS_ERROR_FAILURE;
 
   NS_ADDREF(*aVirtualCursor = Intl()->VirtualCursor());
   return NS_OK;
@@ -174,16 +165,15 @@ xpcAccessibleDocument::GetAccessible(Accessible* aAccessible)
 {
   MOZ_ASSERT(!mRemote);
   if (ToXPCDocument(aAccessible->Document()) != this) {
-    NS_ERROR("This XPCOM document is not related with given internal accessible!");
+    NS_ERROR(
+        "This XPCOM document is not related with given internal accessible!");
     return nullptr;
   }
 
-  if (aAccessible->IsDoc())
-    return this;
+  if (aAccessible->IsDoc()) return this;
 
   xpcAccessibleGeneric* xpcAcc = mCache.Get(aAccessible);
-  if (xpcAcc)
-    return xpcAcc;
+  if (xpcAcc) return xpcAcc;
 
   if (aAccessible->IsImage())
     xpcAcc = new xpcAccessibleImage(aAccessible);
@@ -259,6 +249,6 @@ a11y::ToXPC(AccessibleOrProxy aAcc)
     return ToXPC(aAcc.AsAccessible());
   }
 
- xpcAccessibleDocument* doc = ToXPCDocument(aAcc.AsProxy()->Document());
- return doc->GetXPCAccessible(aAcc.AsProxy());
+  xpcAccessibleDocument* doc = ToXPCDocument(aAcc.AsProxy()->Document());
+  return doc->GetXPCAccessible(aAcc.AsProxy());
 }

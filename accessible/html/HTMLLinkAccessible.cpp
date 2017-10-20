@@ -21,9 +21,9 @@ using namespace mozilla::a11y;
 // HTMLLinkAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLLinkAccessible::
-  HTMLLinkAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLLinkAccessible::HTMLLinkAccessible(nsIContent* aContent,
+                                       DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -48,8 +48,7 @@ uint64_t
 HTMLLinkAccessible::NativeLinkState() const
 {
   EventStates eventState = mContent->AsElement()->State();
-  if (eventState.HasState(NS_EVENT_STATE_UNVISITED))
-    return states::LINKED;
+  if (eventState.HasState(NS_EVENT_STATE_UNVISITED)) return states::LINKED;
 
   if (eventState.HasState(NS_EVENT_STATE_VISITED))
     return states::LINKED | states::TRAVERSED;
@@ -101,19 +100,16 @@ HTMLLinkAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
   }
 
   // Action 0 (default action): Jump to link
-  if (aIndex == eAction_Jump)
-    aName.AssignLiteral("jump");
+  if (aIndex == eAction_Jump) aName.AssignLiteral("jump");
 }
 
 bool
 HTMLLinkAccessible::DoAction(uint8_t aIndex)
 {
-  if (!IsLinked())
-    return HyperTextAccessible::DoAction(aIndex);
+  if (!IsLinked()) return HyperTextAccessible::DoAction(aIndex);
 
   // Action 0 (default action): Jump to link
-  if (aIndex != eAction_Jump)
-    return false;
+  if (aIndex != eAction_Jump) return false;
 
   DoCommand();
   return true;

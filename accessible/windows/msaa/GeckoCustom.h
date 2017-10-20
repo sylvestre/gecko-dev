@@ -20,7 +20,7 @@ namespace a11y {
  */
 class GeckoCustom final : public IGeckoCustom
 {
-public:
+ public:
   explicit GeckoCustom(AccessibleWrap* aAcc) : mAcc(aAcc) {}
 
   // IUnknown
@@ -32,20 +32,20 @@ public:
   virtual STDMETHODIMP get_minimumIncrement(double* aIncrement);
   virtual STDMETHODIMP get_mozState(uint64_t* aState);
 
-private:
+ private:
   GeckoCustom() = delete;
-  GeckoCustom& operator =(const GeckoCustom&) = delete;
+  GeckoCustom& operator=(const GeckoCustom&) = delete;
   GeckoCustom(const GeckoCustom&) = delete;
   GeckoCustom(GeckoCustom&&) = delete;
   GeckoCustom& operator=(GeckoCustom&&) = delete;
 
-  ~GeckoCustom() { }
+  ~GeckoCustom() {}
 
-protected:
+ protected:
   RefPtr<AccessibleWrap> mAcc;
 };
 
-} // a11y namespace
-} // mozilla namespace
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

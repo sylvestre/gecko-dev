@@ -7,26 +7,26 @@ struct RefCountedBase {
   void Release();
 };
 
-template <class T>
-struct SmartPtr {
+template <class T> struct SmartPtr {
   SmartPtr();
-  MOZ_IMPLICIT SmartPtr(T*);
-  T* MOZ_STRONG_REF t;
-  T* operator->() const;
+  MOZ_IMPLICIT SmartPtr(T *);
+  T *MOZ_STRONG_REF t;
+  T *operator->() const;
 };
 
 struct R : RefCountedBase {
   void method();
+
 private:
   void privateMethod();
 };
 
 void take(...);
 void foo() {
-  R* ptr;
+  R *ptr;
   SmartPtr<R> sp;
-  take([&](R* argptr) {
-    R* localptr;
+  take([&](R *argptr) {
+    R *localptr;
     ptr->method();
     argptr->method();
     localptr->method();
@@ -37,8 +37,8 @@ void foo() {
     argsp->method();
     localsp->method();
   });
-  take([&](R* argptr) {
-    R* localptr;
+  take([&](R *argptr) {
+    R *localptr;
     take(ptr);
     take(argptr);
     take(localptr);
@@ -49,8 +49,8 @@ void foo() {
     take(argsp);
     take(localsp);
   });
-  take([=](R* argptr) {
-    R* localptr;
+  take([=](R *argptr) {
+    R *localptr;
     ptr->method();
     argptr->method();
     localptr->method();
@@ -61,8 +61,8 @@ void foo() {
     argsp->method();
     localsp->method();
   });
-  take([=](R* argptr) {
-    R* localptr;
+  take([=](R *argptr) {
+    R *localptr;
     take(ptr);
     take(argptr);
     take(localptr);
@@ -73,8 +73,8 @@ void foo() {
     take(argsp);
     take(localsp);
   });
-  take([ptr](R* argptr) {
-    R* localptr;
+  take([ptr](R *argptr) {
+    R *localptr;
     ptr->method();
     argptr->method();
     localptr->method();
@@ -85,8 +85,8 @@ void foo() {
     argsp->method();
     localsp->method();
   });
-  take([ptr](R* argptr) {
-    R* localptr;
+  take([ptr](R *argptr) {
+    R *localptr;
     take(ptr);
     take(argptr);
     take(localptr);
@@ -97,8 +97,8 @@ void foo() {
     take(argsp);
     take(localsp);
   });
-  take([&ptr](R* argptr) {
-    R* localptr;
+  take([&ptr](R *argptr) {
+    R *localptr;
     ptr->method();
     argptr->method();
     localptr->method();
@@ -109,8 +109,8 @@ void foo() {
     argsp->method();
     localsp->method();
   });
-  take([&ptr](R* argptr) {
-    R* localptr;
+  take([&ptr](R *argptr) {
+    R *localptr;
     take(ptr);
     take(argptr);
     take(localptr);
@@ -124,10 +124,10 @@ void foo() {
 }
 
 void b() {
-  R* ptr;
+  R *ptr;
   SmartPtr<R> sp;
-  std::function<void(R*)>([&](R* argptr) {
-    R* localptr;
+  std::function<void(R *)>([&](R *argptr) {
+    R *localptr;
     ptr->method();
     argptr->method();
     localptr->method();
@@ -138,8 +138,8 @@ void b() {
     argsp->method();
     localsp->method();
   });
-  std::function<void(R*)>([&](R* argptr) {
-    R* localptr;
+  std::function<void(R *)>([&](R *argptr) {
+    R *localptr;
     take(ptr);
     take(argptr);
     take(localptr);
@@ -150,9 +150,11 @@ void b() {
     take(argsp);
     take(localsp);
   });
-  std::function<void(R*)>([=](R* argptr) {
-    R* localptr;
-    ptr->method(); // expected-error{{Refcounted variable 'ptr' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+  std::function<void(R *)>([=](R *argptr) {
+    R *localptr;
+    ptr->method(); // expected-error{{Refcounted variable 'ptr' of type 'R'
+                   // cannot be captured by a lambda}} expected-note{{Please
+                   // consider using a smart pointer}}
     argptr->method();
     localptr->method();
   });
@@ -162,9 +164,11 @@ void b() {
     argsp->method();
     localsp->method();
   });
-  std::function<void(R*)>([=](R* argptr) {
-    R* localptr;
-    take(ptr); // expected-error{{Refcounted variable 'ptr' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+  std::function<void(R *)>([=](R *argptr) {
+    R *localptr;
+    take(ptr); // expected-error{{Refcounted variable 'ptr' of type 'R' cannot
+               // be captured by a lambda}} expected-note{{Please consider using
+               // a smart pointer}}
     take(argptr);
     take(localptr);
   });
@@ -174,32 +178,40 @@ void b() {
     take(argsp);
     take(localsp);
   });
-  std::function<void(R*)>([ptr](R* argptr) { // expected-error{{Refcounted variable 'ptr' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
-    R* localptr;
-    ptr->method();
-    argptr->method();
-    localptr->method();
-  });
+  std::function<void(R *)>(
+      [ptr](R *argptr) { // expected-error{{Refcounted variable 'ptr' of type
+                         // 'R' cannot be captured by a lambda}}
+                         // expected-note{{Please consider using a smart
+                         // pointer}}
+        R *localptr;
+        ptr->method();
+        argptr->method();
+        localptr->method();
+      });
   std::function<void(SmartPtr<R>)>([sp](SmartPtr<R> argsp) {
     SmartPtr<R> localsp;
     sp->method();
     argsp->method();
     localsp->method();
   });
-  std::function<void(R*)>([ptr](R* argptr) { // expected-error{{Refcounted variable 'ptr' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
-    R* localptr;
-    take(ptr);
-    take(argptr);
-    take(localptr);
-  });
+  std::function<void(R *)>(
+      [ptr](R *argptr) { // expected-error{{Refcounted variable 'ptr' of type
+                         // 'R' cannot be captured by a lambda}}
+                         // expected-note{{Please consider using a smart
+                         // pointer}}
+        R *localptr;
+        take(ptr);
+        take(argptr);
+        take(localptr);
+      });
   std::function<void(SmartPtr<R>)>([sp](SmartPtr<R> argsp) {
     SmartPtr<R> localsp;
     take(sp);
     take(argsp);
     take(localsp);
   });
-  std::function<void(R*)>([&ptr](R* argptr) {
-    R* localptr;
+  std::function<void(R *)>([&ptr](R *argptr) {
+    R *localptr;
     ptr->method();
     argptr->method();
     localptr->method();
@@ -210,8 +222,8 @@ void b() {
     argsp->method();
     localsp->method();
   });
-  std::function<void(R*)>([&ptr](R* argptr) {
-    R* localptr;
+  std::function<void(R *)>([&ptr](R *argptr) {
+    R *localptr;
     take(ptr);
     take(argptr);
     take(localptr);
@@ -392,17 +404,17 @@ auto d17() {
 
 void e() {
   auto e1 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
-    return ([&](R* argptr) {
-      R* localptr;
+    return ([&](R *argptr) {
+      R *localptr;
       ptr->method();
       argptr->method();
       localptr->method();
     });
   };
   auto e2 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
     return ([&](SmartPtr<R> argsp) {
       SmartPtr<R> localsp;
@@ -412,17 +424,17 @@ void e() {
     });
   };
   auto e3 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
-    return ([&](R* argptr) {
-      R* localptr;
+    return ([&](R *argptr) {
+      R *localptr;
       take(ptr);
       take(argptr);
       take(localptr);
     });
   };
   auto e4 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
     return ([&](SmartPtr<R> argsp) {
       SmartPtr<R> localsp;
@@ -432,17 +444,19 @@ void e() {
     });
   };
   auto e5 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
-    return ([=](R* argptr) {
-      R* localptr;
-      ptr->method(); // expected-error{{Refcounted variable 'ptr' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+    return ([=](R *argptr) {
+      R *localptr;
+      ptr->method(); // expected-error{{Refcounted variable 'ptr' of type 'R'
+                     // cannot be captured by a lambda}} expected-note{{Please
+                     // consider using a smart pointer}}
       argptr->method();
       localptr->method();
     });
   };
   auto e6 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
     return ([=](SmartPtr<R> argsp) {
       SmartPtr<R> localsp;
@@ -452,17 +466,19 @@ void e() {
     });
   };
   auto e8 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
-    return ([=](R* argptr) {
-      R* localptr;
-      take(ptr); // expected-error{{Refcounted variable 'ptr' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+    return ([=](R *argptr) {
+      R *localptr;
+      take(ptr); // expected-error{{Refcounted variable 'ptr' of type 'R' cannot
+                 // be captured by a lambda}} expected-note{{Please consider
+                 // using a smart pointer}}
       take(argptr);
       take(localptr);
     });
   };
   auto e9 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
     return ([=](SmartPtr<R> argsp) {
       SmartPtr<R> localsp;
@@ -472,17 +488,20 @@ void e() {
     });
   };
   auto e10 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
-    return ([ptr](R* argptr) { // expected-error{{Refcounted variable 'ptr' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
-      R* localptr;
+    return ([ptr](R *argptr) { // expected-error{{Refcounted variable 'ptr' of
+                               // type 'R' cannot be captured by a lambda}}
+                               // expected-note{{Please consider using a smart
+                               // pointer}}
+      R *localptr;
       ptr->method();
       argptr->method();
       localptr->method();
     });
   };
   auto e11 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
     return ([sp](SmartPtr<R> argsp) {
       SmartPtr<R> localsp;
@@ -492,17 +511,20 @@ void e() {
     });
   };
   auto e12 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
-    return ([ptr](R* argptr) { // expected-error{{Refcounted variable 'ptr' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
-      R* localptr;
+    return ([ptr](R *argptr) { // expected-error{{Refcounted variable 'ptr' of
+                               // type 'R' cannot be captured by a lambda}}
+                               // expected-note{{Please consider using a smart
+                               // pointer}}
+      R *localptr;
       take(ptr);
       take(argptr);
       take(localptr);
     });
   };
   auto e13 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
     return ([sp](SmartPtr<R> argsp) {
       SmartPtr<R> localsp;
@@ -512,17 +534,17 @@ void e() {
     });
   };
   auto e14 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
-    return ([&ptr](R* argptr) {
-      R* localptr;
+    return ([&ptr](R *argptr) {
+      R *localptr;
       ptr->method();
       argptr->method();
       localptr->method();
     });
   };
   auto e15 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
     return ([&sp](SmartPtr<R> argsp) {
       SmartPtr<R> localsp;
@@ -532,17 +554,17 @@ void e() {
     });
   };
   auto e16 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
-    return ([&ptr](R* argptr) {
-      R* localptr;
+    return ([&ptr](R *argptr) {
+      R *localptr;
       take(ptr);
       take(argptr);
       take(localptr);
     });
   };
   auto e17 = []() {
-    R* ptr;
+    R *ptr;
     SmartPtr<R> sp;
     return ([&sp](SmartPtr<R> argsp) {
       SmartPtr<R> localsp;
@@ -553,63 +575,60 @@ void e() {
   };
 }
 
-void
-R::privateMethod() {
+void R::privateMethod() {
   SmartPtr<R> self = this;
-  std::function<void()>([&]() {
-    self->method();
-  });
-  std::function<void()>([&]() {
-    self->privateMethod();
-  });
-  std::function<void()>([&]() {
-    this->method();
-  });
-  std::function<void()>([&]() {
-    this->privateMethod();
+  std::function<void()>([&]() { self->method(); });
+  std::function<void()>([&]() { self->privateMethod(); });
+  std::function<void()>([&]() { this->method(); });
+  std::function<void()>([&]() { this->privateMethod(); });
+  std::function<void()>([=]() { self->method(); });
+  std::function<void()>([=]() { self->privateMethod(); });
+  std::function<void()>([=]() {
+    this->method(); // expected-error{{Refcounted variable 'this' of type 'R'
+                    // cannot be captured by a lambda}} expected-note{{Please
+                    // consider using a smart pointer}}
   });
   std::function<void()>([=]() {
-    self->method();
+    this->privateMethod(); // expected-error{{Refcounted variable 'this' of type
+                           // 'R' cannot be captured by a lambda}}
+                           // expected-note{{Please consider using a smart
+                           // pointer}}
   });
-  std::function<void()>([=]() {
-    self->privateMethod();
-  });
-  std::function<void()>([=]() {
-    this->method(); // expected-error{{Refcounted variable 'this' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
-  });
-  std::function<void()>([=]() {
-    this->privateMethod(); // expected-error{{Refcounted variable 'this' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
-  });
-  std::function<void()>([self]() {
-    self->method();
-  });
-  std::function<void()>([self]() {
-    self->privateMethod();
+  std::function<void()>([self]() { self->method(); });
+  std::function<void()>([self]() { self->privateMethod(); });
+  std::function<void()>([this]() {
+    this->method(); // expected-error{{Refcounted variable 'this' of type 'R'
+                    // cannot be captured by a lambda}} expected-note{{Please
+                    // consider using a smart pointer}}
   });
   std::function<void()>([this]() {
-    this->method(); // expected-error{{Refcounted variable 'this' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+    this->privateMethod(); // expected-error{{Refcounted variable 'this' of type
+                           // 'R' cannot be captured by a lambda}}
+                           // expected-note{{Please consider using a smart
+                           // pointer}}
   });
   std::function<void()>([this]() {
-    this->privateMethod(); // expected-error{{Refcounted variable 'this' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+    method(); // expected-error{{Refcounted variable 'this' of type 'R' cannot
+              // be captured by a lambda}} expected-note{{Please consider using
+              // a smart pointer}}
   });
   std::function<void()>([this]() {
-    method(); // expected-error{{Refcounted variable 'this' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
-  });
-  std::function<void()>([this]() {
-    privateMethod(); // expected-error{{Refcounted variable 'this' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+    privateMethod(); // expected-error{{Refcounted variable 'this' of type 'R'
+                     // cannot be captured by a lambda}} expected-note{{Please
+                     // consider using a smart pointer}}
   });
   std::function<void()>([=]() {
-    method(); // expected-error{{Refcounted variable 'this' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+    method(); // expected-error{{Refcounted variable 'this' of type 'R' cannot
+              // be captured by a lambda}} expected-note{{Please consider using
+              // a smart pointer}}
   });
   std::function<void()>([=]() {
-    privateMethod(); // expected-error{{Refcounted variable 'this' of type 'R' cannot be captured by a lambda}} expected-note{{Please consider using a smart pointer}}
+    privateMethod(); // expected-error{{Refcounted variable 'this' of type 'R'
+                     // cannot be captured by a lambda}} expected-note{{Please
+                     // consider using a smart pointer}}
   });
-  std::function<void()>([&]() {
-    method();
-  });
-  std::function<void()>([&]() {
-    privateMethod();
-  });
+  std::function<void()>([&]() { method(); });
+  std::function<void()>([&]() { privateMethod(); });
 
   // It should be OK to go through `this` if we have captured a reference to it.
   std::function<void()>([this, self]() {

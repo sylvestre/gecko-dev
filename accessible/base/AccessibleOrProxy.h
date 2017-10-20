@@ -22,11 +22,15 @@ namespace a11y {
  */
 class AccessibleOrProxy
 {
-public:
-  MOZ_IMPLICIT AccessibleOrProxy(Accessible* aAcc) :
-    mBits(reinterpret_cast<uintptr_t>(aAcc)) {}
-  MOZ_IMPLICIT AccessibleOrProxy(ProxyAccessible* aProxy) :
-    mBits(aProxy ? (reinterpret_cast<uintptr_t>(aProxy) | IS_PROXY) : 0) {}
+ public:
+  MOZ_IMPLICIT AccessibleOrProxy(Accessible* aAcc)
+      : mBits(reinterpret_cast<uintptr_t>(aAcc))
+  {
+  }
+  MOZ_IMPLICIT AccessibleOrProxy(ProxyAccessible* aProxy)
+      : mBits(aProxy ? (reinterpret_cast<uintptr_t>(aProxy) | IS_PROXY) : 0)
+  {
+  }
   MOZ_IMPLICIT AccessibleOrProxy(decltype(nullptr)) : mBits(0) {}
 
   bool IsProxy() const { return mBits & IS_PROXY; }
@@ -112,12 +116,12 @@ public:
   uintptr_t Bits() const { return mBits; }
   void SetBits(uintptr_t aBits) { mBits = aBits; }
 
-private:
+ private:
   uintptr_t mBits;
   static const uintptr_t IS_PROXY = 0x1;
 };
 
-}
-}
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

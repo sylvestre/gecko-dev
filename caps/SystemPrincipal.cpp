@@ -18,15 +18,12 @@
 #include "nsIScriptSecurityManager.h"
 #include "pratom.h"
 
-NS_IMPL_CLASSINFO(SystemPrincipal, nullptr,
+NS_IMPL_CLASSINFO(SystemPrincipal,
+                  nullptr,
                   nsIClassInfo::SINGLETON | nsIClassInfo::MAIN_THREAD_ONLY,
                   NS_SYSTEMPRINCIPAL_CID)
-NS_IMPL_QUERY_INTERFACE_CI(SystemPrincipal,
-                           nsIPrincipal,
-                           nsISerializable)
-NS_IMPL_CI_INTERFACE_GETTER(SystemPrincipal,
-                            nsIPrincipal,
-                            nsISerializable)
+NS_IMPL_QUERY_INTERFACE_CI(SystemPrincipal, nsIPrincipal, nsISerializable)
+NS_IMPL_CI_INTERFACE_GETTER(SystemPrincipal, nsIPrincipal, nsISerializable)
 
 #define SYSTEM_PRINCIPAL_SPEC "[System Principal]"
 
@@ -34,16 +31,15 @@ already_AddRefed<SystemPrincipal>
 SystemPrincipal::Create()
 {
   RefPtr<SystemPrincipal> sp = new SystemPrincipal();
-  sp->FinishInit(NS_LITERAL_CSTRING(SYSTEM_PRINCIPAL_SPEC),
-                 OriginAttributes());
+  sp->FinishInit(NS_LITERAL_CSTRING(SYSTEM_PRINCIPAL_SPEC), OriginAttributes());
   return sp.forget();
 }
 
 nsresult
-SystemPrincipal::GetScriptLocation(nsACString &aStr)
+SystemPrincipal::GetScriptLocation(nsACString& aStr)
 {
-    aStr.AssignLiteral(SYSTEM_PRINCIPAL_SPEC);
-    return NS_OK;
+  aStr.AssignLiteral(SYSTEM_PRINCIPAL_SPEC);
+  return NS_OK;
 }
 
 ///////////////////////////////////////
@@ -51,17 +47,17 @@ SystemPrincipal::GetScriptLocation(nsACString &aStr)
 ///////////////////////////////////////
 
 NS_IMETHODIMP
-SystemPrincipal::GetHashValue(uint32_t *result)
+SystemPrincipal::GetHashValue(uint32_t* result)
 {
-    *result = NS_PTR_TO_INT32(this);
-    return NS_OK;
+  *result = NS_PTR_TO_INT32(this);
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 SystemPrincipal::GetURI(nsIURI** aURI)
 {
-    *aURI = nullptr;
-    return NS_OK;
+  *aURI = nullptr;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
@@ -106,15 +102,12 @@ SystemPrincipal::EnsurePreloadCSP(nsIDOMDocument* aDocument,
 NS_IMETHODIMP
 SystemPrincipal::GetDomain(nsIURI** aDomain)
 {
-    *aDomain = nullptr;
-    return NS_OK;
+  *aDomain = nullptr;
+  return NS_OK;
 }
 
 NS_IMETHODIMP
-SystemPrincipal::SetDomain(nsIURI* aDomain)
-{
-  return NS_OK;
-}
+SystemPrincipal::SetDomain(nsIURI* aDomain) { return NS_OK; }
 
 NS_IMETHODIMP
 SystemPrincipal::GetBaseDomain(nsACString& aBaseDomain)
@@ -137,13 +130,13 @@ SystemPrincipal::GetAddonId(nsAString& aAddonId)
 NS_IMETHODIMP
 SystemPrincipal::Read(nsIObjectInputStream* aStream)
 {
-    // no-op: CID is sufficient to identify the mSystemPrincipal singleton
-    return NS_OK;
+  // no-op: CID is sufficient to identify the mSystemPrincipal singleton
+  return NS_OK;
 }
 
 NS_IMETHODIMP
 SystemPrincipal::Write(nsIObjectOutputStream* aStream)
 {
-    // no-op: CID is sufficient to identify the mSystemPrincipal singleton
-    return NS_OK;
+  // no-op: CID is sufficient to identify the mSystemPrincipal singleton
+  return NS_OK;
 }

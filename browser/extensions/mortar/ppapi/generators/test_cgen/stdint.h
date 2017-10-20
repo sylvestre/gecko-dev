@@ -17,5 +17,4 @@
  * for trusted modules.
  */
 
-#endif  /* PPAPI_C_TEST_CGEN_STDINT_H_ */
-
+#endif /* PPAPI_C_TEST_CGEN_STDINT_H_ */

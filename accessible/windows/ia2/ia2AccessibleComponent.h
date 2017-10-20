@@ -15,24 +15,23 @@ namespace a11y {
 
 class ia2AccessibleComponent : public IAccessibleComponent
 {
-public:
-
+ public:
   // IUnknown
   STDMETHODIMP QueryInterface(REFIID, void**);
 
   // IAccessibleComponent
   virtual /* [propget] */ HRESULT STDMETHODCALLTYPE get_locationInParent(
-      /* [out] */ long *x,
-      /* [retval][out] */ long *y);
+      /* [out] */ long* x,
+      /* [retval][out] */ long* y);
 
   virtual /* [propget] */ HRESULT STDMETHODCALLTYPE get_foreground(
-      /* [retval][out] */ IA2Color *foreground);
+      /* [retval][out] */ IA2Color* foreground);
 
   virtual /* [propget] */ HRESULT STDMETHODCALLTYPE get_background(
-      /* [retval][out] */ IA2Color *background);
+      /* [retval][out] */ IA2Color* background);
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

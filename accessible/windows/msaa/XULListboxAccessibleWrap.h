@@ -23,9 +23,11 @@ class XULListboxAccessibleWrap : public XULListboxAccessible,
 {
   ~XULListboxAccessibleWrap() {}
 
-public:
-  XULListboxAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc) :
-    XULListboxAccessible(aContent, aDoc), ia2AccessibleTable(this) {}
+ public:
+  XULListboxAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc)
+      : XULListboxAccessible(aContent, aDoc), ia2AccessibleTable(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -45,9 +47,11 @@ class XULListCellAccessibleWrap : public XULListCellAccessible,
 {
   ~XULListCellAccessibleWrap() {}
 
-public:
-  XULListCellAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc) :
-    XULListCellAccessible(aContent, aDoc), ia2AccessibleTableCell(this) {}
+ public:
+  XULListCellAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc)
+      : XULListCellAccessible(aContent, aDoc), ia2AccessibleTableCell(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -58,7 +62,7 @@ public:
   virtual void Shutdown() override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

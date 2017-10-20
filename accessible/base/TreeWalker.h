@@ -24,8 +24,9 @@ class DocAccessible;
  */
 class TreeWalker final
 {
-public:
-  enum {
+ public:
+  enum
+  {
     // used to walk the existing tree of the given node
     eWalkCache = 1,
     // used to walk the context tree starting from given node
@@ -45,7 +46,9 @@ public:
    * @param aAnchorNode [in] the node the search will be prepared relative to
    * @param aFlags   [in] flags (see enum above)
    */
-  TreeWalker(Accessible* aContext, nsIContent* aAnchorNode, uint32_t aFlags = eWalkCache);
+  TreeWalker(Accessible* aContext,
+             nsIContent* aAnchorNode,
+             uint32_t aFlags = eWalkCache);
 
   /**
    * Navigates the accessible children within the anchor node subtree.
@@ -88,15 +91,16 @@ public:
   Accessible* Context() const { return mContext; }
   DocAccessible* Document() const { return mDoc; }
 
-private:
+ private:
   TreeWalker();
   TreeWalker(const TreeWalker&);
-  TreeWalker& operator =(const TreeWalker&);
+  TreeWalker& operator=(const TreeWalker&);
 
   /**
    * Return an accessible for the given node if any.
    */
-  Accessible* AccessibleFor(nsIContent* aNode, uint32_t aFlags,
+  Accessible* AccessibleFor(nsIContent* aNode,
+                            uint32_t aFlags,
                             bool* aSkipSubtree);
 
   /**
@@ -110,13 +114,13 @@ private:
                                       bool aStartAtBeginning)
   {
     return mStateStack.AppendElement(
-      dom::AllChildrenIterator(aContent, mChildFilter, aStartAtBeginning));
+        dom::AllChildrenIterator(aContent, mChildFilter, aStartAtBeginning));
   }
   dom::AllChildrenIterator* PrependState(nsIContent* aContent,
                                          bool aStartAtBeginning)
   {
-    return mStateStack.InsertElementAt(0,
-      dom::AllChildrenIterator(aContent, mChildFilter, aStartAtBeginning));
+    return mStateStack.InsertElementAt(
+        0, dom::AllChildrenIterator(aContent, mChildFilter, aStartAtBeginning));
   }
 
   /**
@@ -134,7 +138,8 @@ private:
   int32_t mChildFilter;
   uint32_t mFlags;
 
-  enum Phase {
+  enum Phase
+  {
     eAtStart,
     eAtDOM,
     eAtARIAOwns,
@@ -143,7 +148,7 @@ private:
   Phase mPhase;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_TreeWalker_h_
+#endif  // mozilla_a11y_TreeWalker_h_

@@ -17,13 +17,13 @@ class nsWindowsShellService : public nsIShellService
 {
   virtual ~nsWindowsShellService();
 
-public:
+ public:
   nsWindowsShellService();
 
   NS_DECL_ISUPPORTS
   NS_DECL_NSISHELLSERVICE
 
-protected:
+ protected:
   nsresult LaunchControlPanelDefaultsSelectionUI();
   nsresult LaunchControlPanelDefaultPrograms();
   nsresult LaunchModernSettingsDialogDefaultApps();
@@ -31,4 +31,4 @@ protected:
   nsresult LaunchHTTPHandlerPane();
 };
 
-#endif // nswindowsshellservice_h____
+#endif  // nswindowsshellservice_h____

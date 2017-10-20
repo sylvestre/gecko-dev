@@ -13,13 +13,12 @@
 #include "ProxyAccessible.h"
 #include "mozilla/Likely.h"
 
-
 using namespace mozilla::a11y;
 
 extern "C" {
 
 static AtkHyperlink*
-getLinkCB(AtkHypertext *aText, gint aLinkIndex)
+getLinkCB(AtkHypertext* aText, gint aLinkIndex)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   AtkObject* atkHyperLink = nullptr;
@@ -35,18 +34,17 @@ getLinkCB(AtkHypertext *aText, gint aLinkIndex)
     atkHyperLink = AccessibleWrap::GetAtkObject(hyperLink);
   } else if (ProxyAccessible* proxy = GetProxy(ATK_OBJECT(aText))) {
     ProxyAccessible* proxyLink = proxy->LinkAt(aLinkIndex);
-    if (!proxyLink)
-      return nullptr;
+    if (!proxyLink) return nullptr;
 
     atkHyperLink = GetWrapperFor(proxyLink);
   }
 
-    NS_ENSURE_TRUE(IS_MAI_OBJECT(atkHyperLink), nullptr);
-    return MAI_ATK_OBJECT(atkHyperLink)->GetAtkHyperlink();
+  NS_ENSURE_TRUE(IS_MAI_OBJECT(atkHyperLink), nullptr);
+  return MAI_ATK_OBJECT(atkHyperLink)->GetAtkHyperlink();
 }
 
 static gint
-getLinkCountCB(AtkHypertext *aText)
+getLinkCountCB(AtkHypertext* aText)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -63,7 +61,7 @@ getLinkCountCB(AtkHypertext *aText)
 }
 
 static gint
-getLinkIndexCB(AtkHypertext *aText, gint aCharIndex)
+getLinkIndexCB(AtkHypertext* aText, gint aCharIndex)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aText));
   if (accWrap) {
@@ -85,8 +83,7 @@ void
 hypertextInterfaceInitCB(AtkHypertextIface* aIface)
 {
   NS_ASSERTION(aIface, "no interface!");
-  if (MOZ_UNLIKELY(!aIface))
-    return;
+  if (MOZ_UNLIKELY(!aIface)) return;
 
   aIface->get_link = getLinkCB;
   aIface->get_n_links = getLinkCountCB;

@@ -23,10 +23,13 @@ class XULTreeGridAccessibleWrap : public XULTreeGridAccessible,
 {
   ~XULTreeGridAccessibleWrap() {}
 
-public:
-  XULTreeGridAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc,
-                            nsTreeBodyFrame* aTree) :
-    XULTreeGridAccessible(aContent, aDoc, aTree), ia2AccessibleTable(this) {}
+ public:
+  XULTreeGridAccessibleWrap(nsIContent* aContent,
+                            DocAccessible* aDoc,
+                            nsTreeBodyFrame* aTree)
+      : XULTreeGridAccessible(aContent, aDoc, aTree), ia2AccessibleTable(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -46,15 +49,19 @@ class XULTreeGridCellAccessibleWrap : public XULTreeGridCellAccessible,
 {
   ~XULTreeGridCellAccessibleWrap() {}
 
-public:
+ public:
   XULTreeGridCellAccessibleWrap(nsIContent* aContent,
                                 DocAccessible* aDoc,
                                 XULTreeGridRowAccessible* aRowAcc,
                                 nsITreeBoxObject* aTree,
                                 nsITreeView* aTreeView,
-                                int32_t aRow, nsITreeColumn* aColumn) :
-    XULTreeGridCellAccessible(aContent, aDoc, aRowAcc, aTree, aTreeView, aRow,
-                              aColumn), ia2AccessibleTableCell(this) {}
+                                int32_t aRow,
+                                nsITreeColumn* aColumn)
+      : XULTreeGridCellAccessible(
+            aContent, aDoc, aRowAcc, aTree, aTreeView, aRow, aColumn),
+        ia2AccessibleTableCell(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -65,7 +72,7 @@ public:
   virtual void Shutdown() override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

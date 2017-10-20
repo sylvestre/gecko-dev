@@ -20,9 +20,8 @@ using namespace mozilla::a11y;
 // LeafAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-LeafAccessible::
-  LeafAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  AccessibleWrap(aContent, aDoc)
+LeafAccessible::LeafAccessible(nsIContent* aContent, DocAccessible* aDoc)
+    : AccessibleWrap(aContent, aDoc)
 {
   mStateFlags |= eNoKidsFromDOM;
 }
@@ -33,7 +32,8 @@ NS_IMPL_ISUPPORTS_INHERITED0(LeafAccessible, Accessible)
 // LeafAccessible: Accessible public
 
 Accessible*
-LeafAccessible::ChildAtPoint(int32_t aX, int32_t aY,
+LeafAccessible::ChildAtPoint(int32_t aX,
+                             int32_t aY,
                              EWhichChildAtPoint aWhichChild)
 {
   // Don't walk into leaf accessibles.
@@ -61,7 +61,6 @@ LeafAccessible::IsAcceptableChild(nsIContent* aEl) const
   return false;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // LinkableAccessible
 ////////////////////////////////////////////////////////////////////////////////
@@ -86,7 +85,7 @@ LinkableAccessible::NativeLinkState() const
 {
   bool isLink;
   Accessible* actionAcc =
-    const_cast<LinkableAccessible*>(this)->ActionWalk(&isLink);
+      const_cast<LinkableAccessible*>(this)->ActionWalk(&isLink);
   if (isLink) {
     return states::LINKED | (actionAcc->LinkState() & states::TRAVERSED);
   }
@@ -120,7 +119,8 @@ LinkableAccessible::ActionCount()
 }
 
 Accessible*
-LinkableAccessible::ActionWalk(bool* aIsLink, bool* aIsOnclick,
+LinkableAccessible::ActionWalk(bool* aIsLink,
+                               bool* aIsOnclick,
                                bool* aIsLabelWithControl)
 {
   if (aIsOnclick) {
@@ -204,7 +204,7 @@ KeyBinding
 LinkableAccessible::AccessKey() const
 {
   if (const Accessible* actionAcc =
-    const_cast<LinkableAccessible*>(this)->ActionWalk()) {
+          const_cast<LinkableAccessible*>(this)->ActionWalk()) {
     return actionAcc->AccessKey();
   }
 
@@ -229,7 +229,6 @@ LinkableAccessible::AnchorURIAt(uint32_t aAnchorIndex)
 
   return nullptr;
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // DummyAccessible

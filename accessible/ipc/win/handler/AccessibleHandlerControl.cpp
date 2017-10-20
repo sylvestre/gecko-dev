@@ -6,7 +6,7 @@
 
 #if defined(MOZILLA_INTERNAL_API)
 #error This code is NOT for internal Gecko use!
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #include "AccessibleHandlerControl.h"
 
@@ -24,32 +24,20 @@ mscom::SingletonFactory<AccessibleHandlerControl> gControlFactory;
 
 namespace detail {
 
-TextChange::TextChange()
-  : mIA2UniqueId(0)
-  , mIsInsert(false)
-  , mText()
-{
-}
+TextChange::TextChange() : mIA2UniqueId(0), mIsInsert(false), mText() {}
 
-TextChange::TextChange(long aIA2UniqueId, bool aIsInsert,
+TextChange::TextChange(long aIA2UniqueId,
+                       bool aIsInsert,
                        NotNull<IA2TextSegment*> aText)
-  : mIA2UniqueId(aIA2UniqueId)
-  , mIsInsert(aIsInsert)
-  , mText{BSTRCopy(aText->text), aText->start, aText->end}
+    : mIA2UniqueId(aIA2UniqueId),
+      mIsInsert(aIsInsert),
+      mText{BSTRCopy(aText->text), aText->start, aText->end}
 {
 }
 
-TextChange::TextChange(TextChange&& aOther)
-  : mText()
-{
-  *this = Move(aOther);
-}
+TextChange::TextChange(TextChange&& aOther) : mText() { *this = Move(aOther); }
 
-TextChange::TextChange(const TextChange& aOther)
-  : mText()
-{
-  *this = aOther;
-}
+TextChange::TextChange(const TextChange& aOther) : mText() { *this = aOther; }
 
 TextChange&
 TextChange::operator=(TextChange&& aOther)
@@ -73,10 +61,7 @@ TextChange::operator=(const TextChange& aOther)
   return *this;
 }
 
-TextChange::~TextChange()
-{
-  ::SysFreeString(mText.text);
-}
+TextChange::~TextChange() { ::SysFreeString(mText.text); }
 
 HRESULT
 TextChange::GetOld(long aIA2UniqueId, NotNull<IA2TextSegment*> aOutOldSegment)
@@ -117,7 +102,7 @@ TextChange::SegCopy(IA2TextSegment& aDest, const IA2TextSegment& aSrc)
   return S_OK;
 }
 
-} // namespace detail
+}  // namespace detail
 
 HRESULT
 AccessibleHandlerControl::Create(AccessibleHandlerControl** aOutObject)
@@ -132,10 +117,10 @@ AccessibleHandlerControl::Create(AccessibleHandlerControl** aOutObject)
 }
 
 AccessibleHandlerControl::AccessibleHandlerControl()
-  : mIsRegistered(false)
-  , mCacheGen(0)
-  , mIA2Proxy(mscom::RegisterProxy(L"ia2marshal.dll"))
-  , mHandlerProxy(mscom::RegisterProxy())
+    : mIsRegistered(false),
+      mCacheGen(0),
+      mIA2Proxy(mscom::RegisterProxy(L"ia2marshal.dll")),
+      mHandlerProxy(mscom::RegisterProxy())
 {
   MOZ_ASSERT(mIA2Proxy);
 }
@@ -150,7 +135,8 @@ AccessibleHandlerControl::Invalidate()
 }
 
 HRESULT
-AccessibleHandlerControl::OnTextChange(long aHwnd, long aIA2UniqueId,
+AccessibleHandlerControl::OnTextChange(long aHwnd,
+                                       long aIA2UniqueId,
                                        VARIANT_BOOL aIsInsert,
                                        IA2TextSegment* aText)
 {
@@ -161,7 +147,8 @@ AccessibleHandlerControl::OnTextChange(long aHwnd, long aIA2UniqueId,
   mTextChange = detail::TextChange(aIA2UniqueId, aIsInsert, WrapNotNull(aText));
   NotifyWinEvent(aIsInsert ? IA2_EVENT_TEXT_INSERTED : IA2_EVENT_TEXT_REMOVED,
                  reinterpret_cast<HWND>(static_cast<uintptr_t>(aHwnd)),
-                 OBJID_CLIENT, aIA2UniqueId);
+                 OBJID_CLIENT,
+                 aIA2UniqueId);
   return S_OK;
 }
 
@@ -204,5 +191,5 @@ AccessibleHandlerControl::Register(NotNull<IGeckoBackChannel*> aGecko)
   return hr;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla

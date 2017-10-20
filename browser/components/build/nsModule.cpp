@@ -65,70 +65,96 @@ NS_GENERIC_FACTORY_CONSTRUCTOR(nsSessionStoreUtils)
 NS_DEFINE_NAMED_CID(NS_SESSIONSTOREUTILS_CID);
 
 static const mozilla::Module::CIDEntry kBrowserCIDs[] = {
-    { &kNS_BROWSERDIRECTORYPROVIDER_CID, false, nullptr, DirectoryProviderConstructor },
+    {&kNS_BROWSERDIRECTORYPROVIDER_CID,
+     false,
+     nullptr,
+     DirectoryProviderConstructor},
 #if defined(XP_WIN)
-    { &kNS_SHELLSERVICE_CID, false, nullptr, nsWindowsShellServiceConstructor },
+    {&kNS_SHELLSERVICE_CID, false, nullptr, nsWindowsShellServiceConstructor},
 #elif defined(MOZ_WIDGET_GTK)
-    { &kNS_SHELLSERVICE_CID, false, nullptr, nsGNOMEShellServiceConstructor },
+    {&kNS_SHELLSERVICE_CID, false, nullptr, nsGNOMEShellServiceConstructor},
 #endif
-    { &kNS_FEEDSNIFFER_CID, false, nullptr, nsFeedSnifferConstructor },
-    { &kNS_BROWSER_ABOUT_REDIRECTOR_CID, false, nullptr, AboutRedirector::Create },
+    {&kNS_FEEDSNIFFER_CID, false, nullptr, nsFeedSnifferConstructor},
+    {&kNS_BROWSER_ABOUT_REDIRECTOR_CID,
+     false,
+     nullptr,
+     AboutRedirector::Create},
 #if defined(XP_WIN)
-    { &kNS_WINIEHISTORYENUMERATOR_CID, false, nullptr, nsIEHistoryEnumeratorConstructor },
+    {&kNS_WINIEHISTORYENUMERATOR_CID,
+     false,
+     nullptr,
+     nsIEHistoryEnumeratorConstructor},
 #elif defined(XP_MACOSX)
-    { &kNS_SHELLSERVICE_CID, false, nullptr, nsMacShellServiceConstructor },
+    {&kNS_SHELLSERVICE_CID, false, nullptr, nsMacShellServiceConstructor},
 #endif
-    { &kNS_SESSIONSTOREUTILS_CID, false, nullptr, nsSessionStoreUtilsConstructor },
-    { nullptr }
-};
+    {&kNS_SESSIONSTOREUTILS_CID,
+     false,
+     nullptr,
+     nsSessionStoreUtilsConstructor},
+    {nullptr}};
 
 static const mozilla::Module::ContractIDEntry kBrowserContracts[] = {
-    { NS_BROWSERDIRECTORYPROVIDER_CONTRACTID, &kNS_BROWSERDIRECTORYPROVIDER_CID },
+    {NS_BROWSERDIRECTORYPROVIDER_CONTRACTID, &kNS_BROWSERDIRECTORYPROVIDER_CID},
 #if defined(XP_WIN)
-    { NS_SHELLSERVICE_CONTRACTID, &kNS_SHELLSERVICE_CID },
+    {NS_SHELLSERVICE_CONTRACTID, &kNS_SHELLSERVICE_CID},
 #elif defined(MOZ_WIDGET_GTK)
-    { NS_SHELLSERVICE_CONTRACTID, &kNS_SHELLSERVICE_CID },
+    {NS_SHELLSERVICE_CONTRACTID, &kNS_SHELLSERVICE_CID},
 #endif
-    { NS_FEEDSNIFFER_CONTRACTID, &kNS_FEEDSNIFFER_CID },
-    { NS_SESSIONSTOREUTILS_CONTRACTID, &kNS_SESSIONSTOREUTILS_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "blocked", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "certerror", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "tabcrashed", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "feeds", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "privatebrowsing", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "rights", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "robots", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "searchreset", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "sessionrestore", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "welcomeback", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "home", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "newtab", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "preferences", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "downloads", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "accounts", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
+    {NS_FEEDSNIFFER_CONTRACTID, &kNS_FEEDSNIFFER_CID},
+    {NS_SESSIONSTOREUTILS_CONTRACTID, &kNS_SESSIONSTOREUTILS_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "blocked",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "certerror",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "tabcrashed",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "feeds",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "privatebrowsing",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "rights",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "robots",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "searchreset",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "sessionrestore",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "welcomeback",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "home",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "newtab",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "preferences",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "downloads",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "accounts",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
 #ifdef MOZ_SERVICES_HEALTHREPORT
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "healthreport", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "healthreport",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
 #endif
-    { NS_ABOUT_MODULE_CONTRACTID_PREFIX "reader", &kNS_BROWSER_ABOUT_REDIRECTOR_CID },
+    {NS_ABOUT_MODULE_CONTRACTID_PREFIX "reader",
+     &kNS_BROWSER_ABOUT_REDIRECTOR_CID},
 #if defined(XP_WIN)
-    { NS_IEHISTORYENUMERATOR_CONTRACTID, &kNS_WINIEHISTORYENUMERATOR_CID },
+    {NS_IEHISTORYENUMERATOR_CONTRACTID, &kNS_WINIEHISTORYENUMERATOR_CID},
 #elif defined(XP_MACOSX)
-    { NS_SHELLSERVICE_CONTRACTID, &kNS_SHELLSERVICE_CID },
+    {NS_SHELLSERVICE_CONTRACTID, &kNS_SHELLSERVICE_CID},
 #endif
-    { nullptr }
-};
+    {nullptr}};
 
 static const mozilla::Module::CategoryEntry kBrowserCategories[] = {
-    { XPCOM_DIRECTORY_PROVIDER_CATEGORY, "browser-directory-provider", NS_BROWSERDIRECTORYPROVIDER_CONTRACTID },
-    { NS_CONTENT_SNIFFER_CATEGORY, "Feed Sniffer", NS_FEEDSNIFFER_CONTRACTID },
-    { nullptr }
-};
+    {XPCOM_DIRECTORY_PROVIDER_CATEGORY,
+     "browser-directory-provider",
+     NS_BROWSERDIRECTORYPROVIDER_CONTRACTID},
+    {NS_CONTENT_SNIFFER_CATEGORY, "Feed Sniffer", NS_FEEDSNIFFER_CONTRACTID},
+    {nullptr}};
 
-static const mozilla::Module kBrowserModule = {
-    mozilla::Module::kVersion,
-    kBrowserCIDs,
-    kBrowserContracts,
-    kBrowserCategories
-};
+static const mozilla::Module kBrowserModule = {mozilla::Module::kVersion,
+                                               kBrowserCIDs,
+                                               kBrowserContracts,
+                                               kBrowserCategories};
 
 NSMODULE_DEFN(nsBrowserCompsModule) = &kBrowserModule;

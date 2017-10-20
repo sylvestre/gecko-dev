@@ -14,7 +14,7 @@ namespace a11y {
 
 class RootAccessibleWrap : public RootAccessible
 {
-public:
+ public:
   RootAccessibleWrap(nsIDocument* aDocument, nsIPresShell* aPresShell);
   virtual ~RootAccessibleWrap();
 
@@ -39,18 +39,18 @@ public:
   already_AddRefed<IUnknown> GetInternalUnknown();
 
   virtual /* [id] */ HRESULT STDMETHODCALLTYPE accNavigate(
-    /* [in] */ long navDir,
-    /* [optional][in] */ VARIANT varStart,
-    /* [retval][out] */ VARIANT __RPC_FAR *pvarEndUpAt) override;
+      /* [in] */ long navDir,
+      /* [optional][in] */ VARIANT varStart,
+      /* [retval][out] */ VARIANT __RPC_FAR* pvarEndUpAt) override;
 
-private:
+ private:
   // DECLARE_AGGREGATABLE declares the internal IUnknown methods as well as
   // mInternalUnknown.
   DECLARE_AGGREGATABLE(RootAccessibleWrap);
   IUnknown* mOuter;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

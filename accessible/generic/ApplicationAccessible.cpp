@@ -22,8 +22,8 @@
 
 using namespace mozilla::a11y;
 
-ApplicationAccessible::ApplicationAccessible() :
-  AccessibleWrap(nullptr, nullptr)
+ApplicationAccessible::ApplicationAccessible()
+    : AccessibleWrap(nullptr, nullptr)
 {
   mType = eApplicationType;
   mAppInfo = do_GetService("@mozilla.org/xre/app-info;1");
@@ -41,17 +41,15 @@ ApplicationAccessible::Name(nsString& aName)
   aName.Truncate();
 
   nsCOMPtr<nsIStringBundleService> bundleService =
-    mozilla::services::GetStringBundleService();
+      mozilla::services::GetStringBundleService();
 
   NS_ASSERTION(bundleService, "String bundle service must be present!");
-  if (!bundleService)
-    return eNameOK;
+  if (!bundleService) return eNameOK;
 
   nsCOMPtr<nsIStringBundle> bundle;
-  nsresult rv = bundleService->CreateBundle("chrome://branding/locale/brand.properties",
-                                            getter_AddRefs(bundle));
-  if (NS_FAILED(rv))
-    return eNameOK;
+  nsresult rv = bundleService->CreateBundle(
+      "chrome://branding/locale/brand.properties", getter_AddRefs(bundle));
+  if (NS_FAILED(rv)) return eNameOK;
 
   nsAutoString appName;
   rv = bundle->GetStringFromName("brandShortName", appName);
@@ -95,7 +93,8 @@ ApplicationAccessible::GroupPosition()
 }
 
 Accessible*
-ApplicationAccessible::ChildAtPoint(int32_t aX, int32_t aY,
+ApplicationAccessible::ChildAtPoint(int32_t aX,
+                                    int32_t aY,
                                     EWhichChildAtPoint aWhichChild)
 {
   return nullptr;
@@ -105,8 +104,7 @@ Accessible*
 ApplicationAccessible::FocusedChild()
 {
   Accessible* focus = FocusMgr()->FocusedAccessible();
-  if (focus && focus->Parent() == this)
-    return focus;
+  if (focus && focus->Parent() == this) return focus;
 
   return nullptr;
 }
@@ -165,13 +163,12 @@ ApplicationAccessible::Init()
   // array.
 
   nsCOMPtr<nsIWindowMediator> windowMediator =
-    do_GetService(NS_WINDOWMEDIATOR_CONTRACTID);
+      do_GetService(NS_WINDOWMEDIATOR_CONTRACTID);
 
   nsCOMPtr<nsISimpleEnumerator> windowEnumerator;
-  nsresult rv = windowMediator->GetEnumerator(nullptr,
-                                              getter_AddRefs(windowEnumerator));
-  if (NS_FAILED(rv))
-    return;
+  nsresult rv =
+      windowMediator->GetEnumerator(nullptr, getter_AddRefs(windowEnumerator));
+  if (NS_FAILED(rv)) return;
 
   bool hasMore = false;
   windowEnumerator->HasMoreElements(&hasMore);
@@ -182,7 +179,7 @@ ApplicationAccessible::Init()
     if (DOMWindow) {
       nsCOMPtr<nsIDocument> docNode = DOMWindow->GetDoc();
       if (docNode) {
-        GetAccService()->GetDocAccessible(docNode); // ensure creation
+        GetAccService()->GetDocAccessible(docNode);  // ensure creation
       }
     }
     windowEnumerator->HasMoreElements(&hasMore);
@@ -193,8 +190,7 @@ Accessible*
 ApplicationAccessible::GetSiblingAtOffset(int32_t aOffset,
                                           nsresult* aError) const
 {
-  if (aError)
-    *aError = NS_OK; // fail peacefully
+  if (aError) *aError = NS_OK;  // fail peacefully
 
   return nullptr;
 }

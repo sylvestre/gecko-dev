@@ -18,7 +18,7 @@ using namespace mozilla::a11y;
 extern "C" {
 
 static gboolean
-doActionCB(AtkAction *aAction, gint aActionIndex)
+doActionCB(AtkAction* aAction, gint aActionIndex)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aAction));
   if (accWrap) {
@@ -30,7 +30,7 @@ doActionCB(AtkAction *aAction, gint aActionIndex)
 }
 
 static gint
-getActionCountCB(AtkAction *aAction)
+getActionCountCB(AtkAction* aAction)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aAction));
   if (accWrap) {
@@ -42,7 +42,7 @@ getActionCountCB(AtkAction *aAction)
 }
 
 static const gchar*
-getActionDescriptionCB(AtkAction *aAction, gint aActionIndex)
+getActionDescriptionCB(AtkAction* aAction, gint aActionIndex)
 {
   nsAutoString description;
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aAction));
@@ -58,7 +58,7 @@ getActionDescriptionCB(AtkAction *aAction, gint aActionIndex)
 }
 
 static const gchar*
-getActionNameCB(AtkAction *aAction, gint aActionIndex)
+getActionNameCB(AtkAction* aAction, gint aActionIndex)
 {
   nsAutoString autoStr;
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aAction));
@@ -74,7 +74,7 @@ getActionNameCB(AtkAction *aAction, gint aActionIndex)
 }
 
 static const gchar*
-getKeyBindingCB(AtkAction *aAction, gint aActionIndex)
+getKeyBindingCB(AtkAction* aAction, gint aActionIndex)
 {
   nsAutoString keyBindingsStr;
   AccessibleWrap* acc = GetAccessibleWrap(ATK_OBJECT(aAction));
@@ -94,8 +94,7 @@ void
 actionInterfaceInitCB(AtkActionIface* aIface)
 {
   NS_ASSERTION(aIface, "Invalid aIface");
-  if (MOZ_UNLIKELY(!aIface))
-    return;
+  if (MOZ_UNLIKELY(!aIface)) return;
 
   aIface->do_action = doActionCB;
   aIface->get_n_actions = getActionCountCB;

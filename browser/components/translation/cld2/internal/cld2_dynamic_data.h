@@ -1,15 +1,15 @@
-// Copyright 2014 Google Inc. All Rights Reserved.                                                  
-//                                                                                                  
-// Licensed under the Apache License, Version 2.0 (the "License");                                  
-// you may not use this file except in compliance with the License.                                 
-// You may obtain a copy of the License at                                                          
-//                                                                                                  
-//     http://www.apache.org/licenses/LICENSE-2.0                                                   
-//                                                                                                  
-// Unless required by applicable law or agreed to in writing, software                              
-// distributed under the License is distributed on an "AS IS" BASIS,                                
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.                         
-// See the License for the specific language governing permissions and                              
+// Copyright 2014 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
 // limitations under the License.
 
 #ifndef CLD2_INTERNAL_CLD2_DYNAMIC_DATA_H_
@@ -135,17 +135,20 @@
 namespace CLD2DynamicData {
 
 static const char* DATA_FILE_MARKER = "cld2_data_file00";
-static const int DATA_FILE_MARKER_LENGTH = 16; // Keep aligned to 128 bits
+static const int DATA_FILE_MARKER_LENGTH = 16;  // Keep aligned to 128 bits
 
 // Nicer version of memcmp that shows the offset at which bytes differ
-bool mem_compare(const void* data1, const void* data2, const int length);
+bool
+mem_compare(const void* data1, const void* data2, const int length);
 
 // Enable or disable debugging; 0 to disable, 1 to enable
-void setDebug(int debug);
+void
+setDebug(int debug);
 
 // Lower-level structure for individual tables. There are n table headers in
 // a given file header.
-typedef struct {
+typedef struct
+{
   CLD2::uint32 kCLDTableSizeOne;
   CLD2::uint32 kCLDTableSize;
   CLD2::uint32 kCLDTableKeyMask;
@@ -158,11 +161,11 @@ typedef struct {
   CLD2::uint32 lengthOf_kRecognizedLangScripts;
 } TableHeader;
 
-
 // Top-level structure for a CLD2 Data File Header.
 // Contains all the primitive fields for the header as well as an array of
 // headers for the individual tables.
-typedef struct {
+typedef struct
+{
   // Marker fields help recognize and verify the data file
   char sanityString[DATA_FILE_MARKER_LENGTH];
   CLD2::uint32 totalFileSizeBytes;
@@ -197,20 +200,26 @@ typedef struct {
 // Calculate the exact size of a header that encodes the specified number of
 // tables. This can be used to reserve space within the data file,
 // calculate offsets, and so on.
-CLD2::uint32 calculateHeaderSize(CLD2::uint32 numTables);
+CLD2::uint32
+calculateHeaderSize(CLD2::uint32 numTables);
 
 // Dump a given header to stdout as a human-readable string.
-void dumpHeader(FileHeader* header);
+void
+dumpHeader(FileHeader* header);
 
 // Verify that a given pair of scoring tables match precisely
 // If there is a problem, returns an error message; otherwise, the empty string.
-bool verify(const CLD2::ScoringTables* realData, const CLD2::ScoringTables* loadedData);
+bool
+verify(const CLD2::ScoringTables* realData,
+       const CLD2::ScoringTables* loadedData);
 
 // Return true iff the program is running in little-endian mode.
-bool isLittleEndian();
+bool
+isLittleEndian();
 
 // Return true iff the core size assumptions are ok on this platform.
-bool coreAssumptionsOk();
+bool
+coreAssumptionsOk();
 
-} // End namespace CLD2DynamicData
+}  // End namespace CLD2DynamicData
 #endif  // CLD2_INTERNAL_CLD2_DYNAMIC_DATA_H_

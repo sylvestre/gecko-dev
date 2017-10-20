@@ -13,9 +13,9 @@ struct SerializedURI
 {
   nsCString spec;
 
-  bool operator ==(const SerializedURI& rhs) const
+  bool operator==(const SerializedURI& rhs) const
   {
-      return spec.Equals(rhs.spec);
+    return spec.Equals(rhs.spec);
   }
 };
 
@@ -27,13 +27,12 @@ struct ChromePackage
   SerializedURI skinBaseURI;
   uint32_t flags;
 
-  bool operator ==(const ChromePackage& rhs) const
+  bool operator==(const ChromePackage& rhs) const
   {
     return package.Equals(rhs.package) &&
            contentBaseURI == rhs.contentBaseURI &&
            localeBaseURI == rhs.localeBaseURI &&
-           skinBaseURI == rhs.skinBaseURI &&
-           flags == rhs.flags;
+           skinBaseURI == rhs.skinBaseURI && flags == rhs.flags;
   }
 };
 
@@ -44,12 +43,10 @@ struct SubstitutionMapping
   SerializedURI resolvedURI;
   uint32_t flags;
 
-  bool operator ==(const SubstitutionMapping& rhs) const
+  bool operator==(const SubstitutionMapping& rhs) const
   {
-    return scheme.Equals(rhs.scheme) &&
-           path.Equals(rhs.path) &&
-           resolvedURI == rhs.resolvedURI &&
-           flags == rhs.flags;
+    return scheme.Equals(rhs.scheme) && path.Equals(rhs.path) &&
+           resolvedURI == rhs.resolvedURI && flags == rhs.flags;
   }
 };
 
@@ -60,8 +57,7 @@ struct OverrideMapping
 
   bool operator==(const OverrideMapping& rhs) const
   {
-      return originalURI == rhs.originalURI &&
-             overrideURI == rhs.overrideURI;
+    return originalURI == rhs.originalURI && overrideURI == rhs.overrideURI;
   }
 };
 
@@ -77,7 +73,9 @@ struct ParamTraits<SerializedURI>
     WriteParam(aMsg, aParam.spec);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     nsCString spec;
     if (ReadParam(aMsg, aIter, &spec)) {
@@ -88,7 +86,7 @@ struct ParamTraits<SerializedURI>
   }
 };
 
-template <>
+template<>
 struct ParamTraits<ChromePackage>
 {
   typedef ChromePackage paramType;
@@ -102,7 +100,9 @@ struct ParamTraits<ChromePackage>
     WriteParam(aMsg, aParam.flags);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     nsCString package;
     SerializedURI contentBaseURI, localeBaseURI, skinBaseURI;
@@ -125,14 +125,16 @@ struct ParamTraits<ChromePackage>
 
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
-    aLog->append(StringPrintf(L"[%s, %s, %s, %s, %u]", aParam.package.get(),
-                             aParam.contentBaseURI.spec.get(),
-                             aParam.localeBaseURI.spec.get(),
-                             aParam.skinBaseURI.spec.get(), aParam.flags));
+    aLog->append(StringPrintf(L"[%s, %s, %s, %s, %u]",
+                              aParam.package.get(),
+                              aParam.contentBaseURI.spec.get(),
+                              aParam.localeBaseURI.spec.get(),
+                              aParam.skinBaseURI.spec.get(),
+                              aParam.flags));
   }
 };
 
-template <>
+template<>
 struct ParamTraits<SubstitutionMapping>
 {
   typedef SubstitutionMapping paramType;
@@ -145,14 +147,15 @@ struct ParamTraits<SubstitutionMapping>
     WriteParam(aMsg, aParam.flags);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     nsCString scheme, path;
     SerializedURI resolvedURI;
     uint32_t flags;
 
-    if (ReadParam(aMsg, aIter, &scheme) &&
-        ReadParam(aMsg, aIter, &path) &&
+    if (ReadParam(aMsg, aIter, &scheme) && ReadParam(aMsg, aIter, &path) &&
         ReadParam(aMsg, aIter, &resolvedURI) &&
         ReadParam(aMsg, aIter, &flags)) {
       aResult->scheme = scheme;
@@ -167,13 +170,13 @@ struct ParamTraits<SubstitutionMapping>
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
     aLog->append(StringPrintf(L"[%s://%s, %s, %u]",
-                             aParam.scheme.get(),
-                             aParam.path.get(),
-                             aParam.resolvedURI.spec.get()));
+                              aParam.scheme.get(),
+                              aParam.path.get(),
+                              aParam.resolvedURI.spec.get()));
   }
 };
 
-template <>
+template<>
 struct ParamTraits<OverrideMapping>
 {
   typedef OverrideMapping paramType;
@@ -184,7 +187,9 @@ struct ParamTraits<OverrideMapping>
     WriteParam(aMsg, aParam.overrideURI);
   }
 
-  static bool Read(const Message* aMsg, PickleIterator* aIter, paramType* aResult)
+  static bool Read(const Message* aMsg,
+                   PickleIterator* aIter,
+                   paramType* aResult)
   {
     SerializedURI originalURI;
     SerializedURI overrideURI;
@@ -200,11 +205,12 @@ struct ParamTraits<OverrideMapping>
 
   static void Log(const paramType& aParam, std::wstring* aLog)
   {
-    aLog->append(StringPrintf(L"[%s, %s, %u]", aParam.originalURI.spec.get(),
-                             aParam.overrideURI.spec.get()));
+    aLog->append(StringPrintf(L"[%s, %s, %u]",
+                              aParam.originalURI.spec.get(),
+                              aParam.overrideURI.spec.get()));
   }
 };
 
-} // namespace IPC
+}  // namespace IPC
 
-#endif // RegistryMessageUtils_h
+#endif  // RegistryMessageUtils_h

@@ -6,7 +6,7 @@
 
 #if defined(MOZILLA_INTERNAL_API)
 #error This code is NOT for internal Gecko use!
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #ifndef mozilla_a11y_AccessibleHandlerControl_h
 #define mozilla_a11y_AccessibleHandlerControl_h
@@ -24,7 +24,7 @@ namespace detail {
 
 class TextChange final
 {
-public:
+ public:
   TextChange();
   TextChange(long aIA2UniqueId, bool aIsInsert, NotNull<IA2TextSegment*> aText);
   TextChange(TextChange&& aOther);
@@ -38,7 +38,7 @@ public:
   HRESULT GetOld(long aIA2UniqueId, NotNull<IA2TextSegment*> aOutOldSegment);
   HRESULT GetNew(long aIA2UniqueId, NotNull<IA2TextSegment*> aOutNewSegment);
 
-private:
+ private:
   static BSTR BSTRCopy(const BSTR& aIn);
   static HRESULT SegCopy(IA2TextSegment& aDest, const IA2TextSegment& aSrc);
 
@@ -47,24 +47,23 @@ private:
   IA2TextSegment mText;
 };
 
-} // namespace detail
+}  // namespace detail
 
 class AccessibleHandlerControl final : public IHandlerControl
 {
-public:
+ public:
   static HRESULT Create(AccessibleHandlerControl** aOutObject);
 
   DECL_IUNKNOWN
 
   // IHandlerControl
   STDMETHODIMP Invalidate() override;
-  STDMETHODIMP OnTextChange(long aHwnd, long aIA2UniqueId,
-                            VARIANT_BOOL aIsInsert, IA2TextSegment* aText) override;
+  STDMETHODIMP OnTextChange(long aHwnd,
+                            long aIA2UniqueId,
+                            VARIANT_BOOL aIsInsert,
+                            IA2TextSegment* aText) override;
 
-  uint32_t GetCacheGen() const
-  {
-    return mCacheGen;
-  }
+  uint32_t GetCacheGen() const { return mCacheGen; }
 
   HRESULT GetNewText(long aIA2UniqueId, NotNull<IA2TextSegment*> aOutNewText);
   HRESULT GetOldText(long aIA2UniqueId, NotNull<IA2TextSegment*> aOutOldText);
@@ -73,7 +72,7 @@ public:
 
   HRESULT Register(NotNull<IGeckoBackChannel*> aGecko);
 
-private:
+ private:
   AccessibleHandlerControl();
   ~AccessibleHandlerControl() = default;
 
@@ -86,7 +85,7 @@ private:
 
 extern mscom::SingletonFactory<AccessibleHandlerControl> gControlFactory;
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_AccessibleHandlerControl_h
+#endif  // mozilla_a11y_AccessibleHandlerControl_h

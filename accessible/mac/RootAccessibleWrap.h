@@ -17,18 +17,18 @@ namespace a11y {
 
 class RootAccessibleWrap : public RootAccessible
 {
-public:
+ public:
   RootAccessibleWrap(nsIDocument* aDocument, nsIPresShell* aPresShell);
   virtual ~RootAccessibleWrap();
 
-    Class GetNativeType ();
+  Class GetNativeType();
 
-    // let's our native accessible get in touch with the
-    // native cocoa view that is our accessible parent.
-    void GetNativeWidget (void **aOutView);
+  // let's our native accessible get in touch with the
+  // native cocoa view that is our accessible parent.
+  void GetNativeWidget(void** aOutView);
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

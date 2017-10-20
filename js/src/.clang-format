@@ -1,5 +1,5 @@
 # Clang-format style for SpiderMonkey code which is different than the standard Mozilla style.
-BasedOnStyle: Mozilla
+BasedOnStyle: Google
 ColumnLimit: 99
 IndentWidth: 4
 

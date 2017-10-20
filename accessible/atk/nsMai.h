@@ -18,40 +18,39 @@ namespace mozilla {
 namespace a11y {
 class ProxyAccessible;
 }
-}
+}  // namespace mozilla
 
-#define MAI_TYPE_ATK_OBJECT             (mai_atk_object_get_type ())
-#define MAI_ATK_OBJECT(obj)             (G_TYPE_CHECK_INSTANCE_CAST ((obj), \
-                                         MAI_TYPE_ATK_OBJECT, MaiAtkObject))
-#define MAI_ATK_OBJECT_CLASS(klass)     (G_TYPE_CHECK_CLASS_CAST ((klass), \
-                                         MAI_TYPE_ATK_OBJECT, \
-                                         MaiAtkObjectClass))
-#define IS_MAI_OBJECT(obj)              (G_TYPE_CHECK_INSTANCE_TYPE ((obj), \
-                                         MAI_TYPE_ATK_OBJECT))
-#define IS_MAI_OBJECT_CLASS(klass)      (G_TYPE_CHECK_CLASS_TYPE ((klass), \
-                                         MAI_TYPE_ATK_OBJECT))
-#define MAI_ATK_OBJECT_GET_CLASS(obj)   (G_TYPE_INSTANCE_GET_CLASS ((obj), \
-                                         MAI_TYPE_ATK_OBJECT, \
-                                         MaiAtkObjectClass))
-GType mai_atk_object_get_type(void);
-GType mai_util_get_type();
-extern "C" GType mai_atk_socket_get_type(void);
+#define MAI_TYPE_ATK_OBJECT (mai_atk_object_get_type())
+#define MAI_ATK_OBJECT(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MAI_TYPE_ATK_OBJECT, MaiAtkObject))
+#define MAI_ATK_OBJECT_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), MAI_TYPE_ATK_OBJECT, MaiAtkObjectClass))
+#define IS_MAI_OBJECT(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MAI_TYPE_ATK_OBJECT))
+#define IS_MAI_OBJECT_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MAI_TYPE_ATK_OBJECT))
+#define MAI_ATK_OBJECT_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MAI_TYPE_ATK_OBJECT, MaiAtkObjectClass))
+GType
+mai_atk_object_get_type(void);
+GType
+mai_util_get_type();
+extern "C" GType
+mai_atk_socket_get_type(void);
 
 /* MaiAtkSocket */
 
-#define MAI_TYPE_ATK_SOCKET              (mai_atk_socket_get_type ())
-#define MAI_ATK_SOCKET(obj)              (G_TYPE_CHECK_INSTANCE_CAST ((obj),\
-                                          MAI_TYPE_ATK_SOCKET, MaiAtkSocket))
-#define MAI_IS_ATK_SOCKET(obj)           (G_TYPE_CHECK_INSTANCE_TYPE ((obj),\
-                                          MAI_TYPE_ATK_SOCKET))
-#define MAI_ATK_SOCKET_CLASS(klass)      (G_TYPE_CHECK_CLASS_CAST ((klass),\
-                                          MAI_TYPE_ATK_SOCKET,\
-                                          MaiAtkSocketClass))
-#define MAI_IS_ATK_SOCKET_CLASS(klass)   (G_TYPE_CHECK_CLASS_TYPE ((klass),\
-                                          MAI_TYPE_ATK_SOCKET))
-#define MAI_ATK_SOCKET_GET_CLASS(obj)    (G_TYPE_INSTANCE_GET_CLASS ((obj),\
-                                          MAI_TYPE_ATK_SOCKET,\
-                                          MaiAtkSocketClass))
+#define MAI_TYPE_ATK_SOCKET (mai_atk_socket_get_type())
+#define MAI_ATK_SOCKET(obj) \
+  (G_TYPE_CHECK_INSTANCE_CAST((obj), MAI_TYPE_ATK_SOCKET, MaiAtkSocket))
+#define MAI_IS_ATK_SOCKET(obj) \
+  (G_TYPE_CHECK_INSTANCE_TYPE((obj), MAI_TYPE_ATK_SOCKET))
+#define MAI_ATK_SOCKET_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_CAST((klass), MAI_TYPE_ATK_SOCKET, MaiAtkSocketClass))
+#define MAI_IS_ATK_SOCKET_CLASS(klass) \
+  (G_TYPE_CHECK_CLASS_TYPE((klass), MAI_TYPE_ATK_SOCKET))
+#define MAI_ATK_SOCKET_GET_CLASS(obj) \
+  (G_TYPE_INSTANCE_GET_CLASS((obj), MAI_TYPE_ATK_SOCKET, MaiAtkSocketClass))
 
 typedef struct _MaiAtkSocket
 {
@@ -69,11 +68,16 @@ typedef struct _MaiAtkSocketClass
 // a version of atk that defines that.
 extern "C" GType (*gAtkTableCellGetTypeFunc)();
 
-mozilla::a11y::AccessibleWrap* GetAccessibleWrap(AtkObject* aAtkObj);
-mozilla::a11y::ProxyAccessible* GetProxy(AtkObject* aAtkObj);
-mozilla::a11y::AccessibleOrProxy GetInternalObj(AtkObject* aObj);
-AtkObject* GetWrapperFor(mozilla::a11y::ProxyAccessible* aProxy);
-AtkObject* GetWrapperFor(mozilla::a11y::AccessibleOrProxy aObj);
+mozilla::a11y::AccessibleWrap*
+GetAccessibleWrap(AtkObject* aAtkObj);
+mozilla::a11y::ProxyAccessible*
+GetProxy(AtkObject* aAtkObj);
+mozilla::a11y::AccessibleOrProxy
+GetInternalObj(AtkObject* aObj);
+AtkObject*
+GetWrapperFor(mozilla::a11y::ProxyAccessible* aProxy);
+AtkObject*
+GetWrapperFor(mozilla::a11y::AccessibleOrProxy aObj);
 
 extern int atkMajorVersion, atkMinorVersion, atkMicroVersion;
 
@@ -82,7 +86,7 @@ extern int atkMajorVersion, atkMinorVersion, atkMicroVersion;
  * aMajor.aMinor.aMicro.
  */
 static inline bool
-IsAtkVersionAtLeast(int aMajor, int aMinor, int aMicro=0)
+IsAtkVersionAtLeast(int aMajor, int aMinor, int aMicro = 0)
 {
   return aMajor < atkMajorVersion ||
          (aMajor == atkMajorVersion &&
@@ -124,8 +128,11 @@ struct MaiAtkObject
   /*
    * Notify ATK of a text change within this ATK object.
    */
-  void FireTextChangeEvent(const nsString& aStr, int32_t aStart, uint32_t aLen,
-                           bool aIsInsert, bool aIsFromUser);
+  void FireTextChangeEvent(const nsString& aStr,
+                           int32_t aStart,
+                           uint32_t aLen,
+                           bool aIsInsert,
+                           bool aIsFromUser);
 
   /**
    * Notify ATK of a shown or hidden subtree rooted at aObject whose parent is
@@ -133,13 +140,14 @@ struct MaiAtkObject
    */
   void FireAtkShowHideEvent(AtkObject* aParent, bool aIsAdded, bool aFromUser);
 
-private:
+ private:
   /*
    * do we have text-remove and text-insert signals if not we need to use
    * text-changed see AccessibleWrap::FireAtkTextChangedEvent() and
    * bug 619002
    */
-  enum EAvailableAtkSignals {
+  enum EAvailableAtkSignals
+  {
     eUnknown,
     eHaveNewAtkTextSignals,
     eNoNewAtkSignals

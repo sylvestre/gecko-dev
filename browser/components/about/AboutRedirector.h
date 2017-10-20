@@ -13,26 +13,25 @@ namespace browser {
 
 class AboutRedirector : public nsIAboutModule
 {
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIABOUTMODULE
 
   AboutRedirector() {}
 
-  static nsresult
-    Create(nsISupports *aOuter, REFNSIID aIID, void **aResult);
+  static nsresult Create(nsISupports* aOuter, REFNSIID aIID, void** aResult);
 
-protected:
+ protected:
   virtual ~AboutRedirector() {}
 
-private:
+ private:
   static bool sActivityStreamEnabled;
   static bool sActivityStreamAboutHomeEnabled;
 
   static void LoadActivityStreamPrefs();
 };
 
-} // namespace browser
-} // namespace mozilla
+}  // namespace browser
+}  // namespace mozilla
 
-#endif // AboutRedirector_h__
+#endif  // AboutRedirector_h__

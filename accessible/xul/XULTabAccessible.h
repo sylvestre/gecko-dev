@@ -19,8 +19,11 @@ namespace a11y {
  */
 class XULTabAccessible : public HyperTextAccessibleWrap
 {
-public:
-  enum { eAction_Switch = 0 };
+ public:
+  enum
+  {
+    eAction_Switch = 0
+  };
 
   XULTabAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
@@ -36,13 +39,12 @@ public:
   virtual bool DoAction(uint8_t aIndex) override;
 };
 
-
 /**
  * A container of tab objects, xul:tabs element.
  */
 class XULTabsAccessible : public XULSelectControlAccessible
 {
-public:
+ public:
   XULTabsAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -52,26 +54,26 @@ public:
   // ActionAccessible
   virtual uint8_t ActionCount() override;
 
-protected:
+ protected:
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
 };
-
 
 /**
  * A container of tab panels, xul:tabpanels element.
  */
 class XULTabpanelsAccessible : public AccessibleWrap
 {
-public:
-  XULTabpanelsAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    AccessibleWrap(aContent, aDoc)
-    { mType = eXULTabpanelsType; }
+ public:
+  XULTabpanelsAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : AccessibleWrap(aContent, aDoc)
+  {
+    mType = eXULTabpanelsType;
+  }
 
   // Accessible
   virtual a11y::role NativeRole() override;
 };
-
 
 /**
  * A tabpanel object, child elements of xul:tabpanels element.
@@ -82,7 +84,7 @@ public:
  */
 class XULTabpanelAccessible : public AccessibleWrap
 {
-public:
+ public:
   XULTabpanelAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -90,8 +92,7 @@ public:
   virtual Relation RelationByType(RelationType aType) override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

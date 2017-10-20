@@ -15,7 +15,8 @@ using namespace mozilla;
 using namespace mozilla::a11y;
 using namespace mozilla::dom;
 
-xpcAccessibilityService *xpcAccessibilityService::gXPCAccessibilityService = nullptr;
+xpcAccessibilityService* xpcAccessibilityService::gXPCAccessibilityService =
+    nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
 // nsISupports
@@ -25,7 +26,7 @@ xpcAccessibilityService::ShutdownCallback(nsITimer* aTimer, void* aClosure)
 {
   MaybeShutdownAccService(nsAccessibilityService::eXPCOM);
   xpcAccessibilityService* xpcAccService =
-    reinterpret_cast<xpcAccessibilityService*>(aClosure);
+      reinterpret_cast<xpcAccessibilityService*>(aClosure);
 
   if (xpcAccService->mShutdownTimer) {
     xpcAccService->mShutdownTimer->Cancel();
@@ -38,8 +39,7 @@ xpcAccessibilityService::AddRef(void)
 {
   MOZ_ASSERT_TYPE_OK_FOR_REFCOUNTING(xpcAccessibilityService)
   MOZ_ASSERT(int32_t(mRefCnt) >= 0, "illegal refcnt");
-  if (!mRefCnt.isThreadSafe)
-    NS_ASSERT_OWNINGTHREAD(xpcAccessibilityService);
+  if (!mRefCnt.isThreadSafe) NS_ASSERT_OWNINGTHREAD(xpcAccessibilityService);
   nsrefcnt count = ++mRefCnt;
   NS_LOG_ADDREF(this, count, "xpcAccessibilityService", sizeof(*this));
 
@@ -91,7 +91,8 @@ xpcAccessibilityService::Release(void)
 NS_IMPL_QUERY_INTERFACE(xpcAccessibilityService, nsIAccessibilityService)
 
 NS_IMETHODIMP
-xpcAccessibilityService::GetApplicationAccessible(nsIAccessible** aAccessibleApplication)
+xpcAccessibilityService::GetApplicationAccessible(
+    nsIAccessible** aAccessibleApplication)
 {
   NS_ENSURE_ARG_POINTER(aAccessibleApplication);
 
@@ -100,8 +101,8 @@ xpcAccessibilityService::GetApplicationAccessible(nsIAccessible** aAccessibleApp
 }
 
 NS_IMETHODIMP
-xpcAccessibilityService::GetAccessibleFor(nsIDOMNode *aNode,
-                                          nsIAccessible **aAccessible)
+xpcAccessibilityService::GetAccessibleFor(nsIDOMNode* aNode,
+                                          nsIAccessible** aAccessible)
 {
   NS_ENSURE_ARG_POINTER(aAccessible);
   *aAccessible = nullptr;
@@ -130,8 +131,9 @@ xpcAccessibilityService::GetStringRole(uint32_t aRole, nsAString& aString)
 }
 
 NS_IMETHODIMP
-xpcAccessibilityService::GetStringStates(uint32_t aState, uint32_t aExtraState,
-                                         nsISupports **aStringStates)
+xpcAccessibilityService::GetStringStates(uint32_t aState,
+                                         uint32_t aExtraState,
+                                         nsISupports** aStringStates)
 {
   GetAccService()->GetStringStates(aState, aExtraState, aStringStates);
   return NS_OK;

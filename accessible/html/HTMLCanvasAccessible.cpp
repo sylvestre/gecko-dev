@@ -9,9 +9,9 @@
 
 using namespace mozilla::a11y;
 
-HTMLCanvasAccessible::
-  HTMLCanvasAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLCanvasAccessible::HTMLCanvasAccessible(nsIContent* aContent,
+                                           DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
 }
 

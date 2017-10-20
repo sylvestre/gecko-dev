@@ -20,13 +20,13 @@
  * @file
  * File Comment. */
 
-
 /**
  * @addtogroup Interfaces
  * @{
  */
 /* Bogus Interface Foo */
-struct Foo_2_0 {
+struct Foo_2_0
+{
   /**
    * Comment for function x,y,z
    */
@@ -35,16 +35,17 @@ struct Foo_2_0 {
 
 typedef struct Foo_2_0 Foo;
 
-struct Foo_0_0 {
+struct Foo_0_0
+{
   int32_t (*Bar)(int32_t x);
 };
 
-struct Foo_1_0 {
+struct Foo_1_0
+{
   int32_t (*Bar)(int32_t x, int32_t y);
 };
 /**
  * @}
  */
 
-#endif  /* PPAPI_C_TEST_CGEN_RANGE_VERSIONS_H_ */
-
+#endif /* PPAPI_C_TEST_CGEN_RANGE_VERSIONS_H_ */

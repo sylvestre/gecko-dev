@@ -15,16 +15,14 @@ using namespace mozilla::a11y;
 // XULAlertAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULAlertAccessible::
-  XULAlertAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  AccessibleWrap(aContent, aDoc)
+XULAlertAccessible::XULAlertAccessible(nsIContent* aContent,
+                                       DocAccessible* aDoc)
+    : AccessibleWrap(aContent, aDoc)
 {
   mGenericTypes |= eAlert;
 }
 
-XULAlertAccessible::~XULAlertAccessible()
-{
-}
+XULAlertAccessible::~XULAlertAccessible() {}
 
 NS_IMPL_ISUPPORTS_INHERITED0(XULAlertAccessible, Accessible)
 
@@ -62,7 +60,6 @@ Accessible*
 XULAlertAccessible::ContainerWidget() const
 {
   // If a part of colorpicker widget.
-  if (mParent && mParent->IsMenuButton())
-    return mParent;
+  if (mParent && mParent->IsMenuButton()) return mParent;
   return nullptr;
 }

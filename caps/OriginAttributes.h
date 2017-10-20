@@ -15,7 +15,7 @@ namespace mozilla {
 
 class OriginAttributes : public dom::OriginAttributesDictionary
 {
-public:
+ public:
   OriginAttributes() {}
 
   OriginAttributes(uint32_t aAppId, bool aInIsolatedMozBrowser)
@@ -25,13 +25,16 @@ public:
   }
 
   explicit OriginAttributes(const OriginAttributesDictionary& aOther)
-    : OriginAttributesDictionary(aOther)
-  {}
+      : OriginAttributesDictionary(aOther)
+  {
+  }
 
   void SetFirstPartyDomain(const bool aIsTopLevelDocument, nsIURI* aURI);
-  void SetFirstPartyDomain(const bool aIsTopLevelDocument, const nsACString& aDomain);
+  void SetFirstPartyDomain(const bool aIsTopLevelDocument,
+                           const nsACString& aDomain);
 
-  enum {
+  enum
+  {
     STRIP_FIRST_PARTY_DOMAIN = 0x01,
     STRIP_USER_CONTEXT_ID = 0x02,
   };
@@ -81,10 +84,7 @@ public:
   void SyncAttributesWithPrivateBrowsing(bool aInPrivateBrowsing);
 
   // check if "privacy.firstparty.isolate" is enabled.
-  static inline bool IsFirstPartyEnabled()
-  {
-    return sFirstPartyIsolation;
-  }
+  static inline bool IsFirstPartyEnabled() { return sFirstPartyIsolation; }
 
   // check if the access of window.opener across different FPDs is restricted.
   // We only restrict the access of window.opener when first party isolation
@@ -102,14 +102,14 @@ public:
 
   static void InitPrefs();
 
-private:
+ private:
   static bool sFirstPartyIsolation;
   static bool sRestrictedOpenerAccess;
 };
 
 class OriginAttributesPattern : public dom::OriginAttributesPatternDictionary
 {
-public:
+ public:
   // To convert a JSON string to an OriginAttributesPattern, do the following:
   //
   // OriginAttributesPattern pattern;
@@ -118,8 +118,11 @@ public:
   // }
   OriginAttributesPattern() {}
 
-  explicit OriginAttributesPattern(const OriginAttributesPatternDictionary& aOther)
-    : OriginAttributesPatternDictionary(aOther) {}
+  explicit OriginAttributesPattern(
+      const OriginAttributesPatternDictionary& aOther)
+      : OriginAttributesPatternDictionary(aOther)
+  {
+  }
 
   // Performs a match of |aAttrs| against this pattern.
   bool Matches(const OriginAttributes& aAttrs) const
@@ -128,19 +131,23 @@ public:
       return false;
     }
 
-    if (mInIsolatedMozBrowser.WasPassed() && mInIsolatedMozBrowser.Value() != aAttrs.mInIsolatedMozBrowser) {
+    if (mInIsolatedMozBrowser.WasPassed() &&
+        mInIsolatedMozBrowser.Value() != aAttrs.mInIsolatedMozBrowser) {
       return false;
     }
 
-    if (mUserContextId.WasPassed() && mUserContextId.Value() != aAttrs.mUserContextId) {
+    if (mUserContextId.WasPassed() &&
+        mUserContextId.Value() != aAttrs.mUserContextId) {
       return false;
     }
 
-    if (mPrivateBrowsingId.WasPassed() && mPrivateBrowsingId.Value() != aAttrs.mPrivateBrowsingId) {
+    if (mPrivateBrowsingId.WasPassed() &&
+        mPrivateBrowsingId.Value() != aAttrs.mPrivateBrowsingId) {
       return false;
     }
 
-    if (mFirstPartyDomain.WasPassed() && mFirstPartyDomain.Value() != aAttrs.mFirstPartyDomain) {
+    if (mFirstPartyDomain.WasPassed() &&
+        mFirstPartyDomain.Value() != aAttrs.mFirstPartyDomain) {
       return false;
     }
 
@@ -165,7 +172,8 @@ public:
       return false;
     }
 
-    if (mPrivateBrowsingId.WasPassed() && aOther.mPrivateBrowsingId.WasPassed() &&
+    if (mPrivateBrowsingId.WasPassed() &&
+        aOther.mPrivateBrowsingId.WasPassed() &&
         mPrivateBrowsingId.Value() != aOther.mPrivateBrowsingId.Value()) {
       return false;
     }
@@ -179,6 +187,6 @@ public:
   }
 };
 
-} // namespace mozilla
+}  // namespace mozilla
 
 #endif /* mozilla_OriginAttributes_h */

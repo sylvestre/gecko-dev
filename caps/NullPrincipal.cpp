@@ -27,14 +27,12 @@
 
 using namespace mozilla;
 
-NS_IMPL_CLASSINFO(NullPrincipal, nullptr, nsIClassInfo::MAIN_THREAD_ONLY,
+NS_IMPL_CLASSINFO(NullPrincipal,
+                  nullptr,
+                  nsIClassInfo::MAIN_THREAD_ONLY,
                   NS_NULLPRINCIPAL_CID)
-NS_IMPL_QUERY_INTERFACE_CI(NullPrincipal,
-                           nsIPrincipal,
-                           nsISerializable)
-NS_IMPL_CI_INTERFACE_GETTER(NullPrincipal,
-                            nsIPrincipal,
-                            nsISerializable)
+NS_IMPL_QUERY_INTERFACE_CI(NullPrincipal, nsIPrincipal, nsISerializable)
+NS_IMPL_CI_INTERFACE_GETTER(NullPrincipal, nsIPrincipal, nsISerializable)
 
 /* static */ already_AddRefed<NullPrincipal>
 NullPrincipal::CreateWithInheritedAttributes(nsIPrincipal* aInheritFrom)
@@ -46,7 +44,8 @@ NullPrincipal::CreateWithInheritedAttributes(nsIPrincipal* aInheritFrom)
 }
 
 /* static */ already_AddRefed<NullPrincipal>
-NullPrincipal::CreateWithInheritedAttributes(nsIDocShell* aDocShell, bool aIsFirstParty)
+NullPrincipal::CreateWithInheritedAttributes(nsIDocShell* aDocShell,
+                                             bool aIsFirstParty)
 {
   OriginAttributes attrs = nsDocShell::Cast(aDocShell)->GetOriginAttributes();
 
@@ -93,7 +92,8 @@ NullPrincipal::Init(const OriginAttributes& aOriginAttributes, nsIURI* aURI)
 }
 
 nsresult
-NullPrincipal::Init(const OriginAttributes& aOriginAttributes, bool aIsFirstParty)
+NullPrincipal::Init(const OriginAttributes& aOriginAttributes,
+                    bool aIsFirstParty)
 {
   mURI = NullPrincipalURI::Create();
   NS_ENSURE_TRUE(mURI, NS_ERROR_NOT_AVAILABLE);
@@ -120,7 +120,7 @@ NullPrincipal::Init(const OriginAttributes& aOriginAttributes, bool aIsFirstPart
 }
 
 nsresult
-NullPrincipal::GetScriptLocation(nsACString &aStr)
+NullPrincipal::GetScriptLocation(nsACString& aStr)
 {
   return mURI->GetSpec(aStr);
 }
@@ -130,7 +130,7 @@ NullPrincipal::GetScriptLocation(nsACString &aStr)
  */
 
 NS_IMETHODIMP
-NullPrincipal::GetHashValue(uint32_t *aResult)
+NullPrincipal::GetHashValue(uint32_t* aResult)
 {
   *aResult = (NS_PTR_TO_INT32(this) >> 2);
   return NS_OK;

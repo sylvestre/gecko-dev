@@ -19,8 +19,7 @@ namespace a11y {
 class ia2AccessibleHypertext : public ia2AccessibleText,
                                public IAccessibleHypertext
 {
-public:
-
+ public:
   // IAccessibleText
   FORWARD_IACCESSIBLETEXT(ia2AccessibleText)
 
@@ -37,7 +36,7 @@ public:
       /* [retval][out] */ long* hyperlinkIndex);
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

@@ -22,8 +22,7 @@ using namespace mozilla::a11y;
 STDMETHODIMP
 ia2AccessibleValue::QueryInterface(REFIID iid, void** ppv)
 {
-  if (!ppv)
-    return E_INVALIDARG;
+  if (!ppv) return E_INVALIDARG;
 
   *ppv = nullptr;
 
@@ -46,8 +45,7 @@ ia2AccessibleValue::QueryInterface(REFIID iid, void** ppv)
 STDMETHODIMP
 ia2AccessibleValue::get_currentValue(VARIANT* aCurrentValue)
 {
-  if (!aCurrentValue)
-    return E_INVALIDARG;
+  if (!aCurrentValue) return E_INVALIDARG;
 
   VariantInit(aCurrentValue);
 
@@ -60,8 +58,7 @@ ia2AccessibleValue::get_currentValue(VARIANT* aCurrentValue)
 
   currentValue = valueAcc->CurValue();
 
-  if (IsNaN(currentValue))
-    return S_FALSE;
+  if (IsNaN(currentValue)) return S_FALSE;
 
   aCurrentValue->vt = VT_R8;
   aCurrentValue->dblVal = currentValue;
@@ -71,14 +68,12 @@ ia2AccessibleValue::get_currentValue(VARIANT* aCurrentValue)
 STDMETHODIMP
 ia2AccessibleValue::setCurrentValue(VARIANT aValue)
 {
-  if (aValue.vt != VT_R8)
-    return E_INVALIDARG;
+  if (aValue.vt != VT_R8) return E_INVALIDARG;
 
   AccessibleWrap* valueAcc = static_cast<AccessibleWrap*>(this);
   MOZ_ASSERT(!valueAcc->IsProxy());
 
-  if (valueAcc->IsDefunct())
-    return CO_E_OBJNOTCONNECTED;
+  if (valueAcc->IsDefunct()) return CO_E_OBJNOTCONNECTED;
 
   return valueAcc->SetCurValue(aValue.dblVal) ? S_OK : E_FAIL;
 }
@@ -86,8 +81,7 @@ ia2AccessibleValue::setCurrentValue(VARIANT aValue)
 STDMETHODIMP
 ia2AccessibleValue::get_maximumValue(VARIANT* aMaximumValue)
 {
-  if (!aMaximumValue)
-    return E_INVALIDARG;
+  if (!aMaximumValue) return E_INVALIDARG;
 
   VariantInit(aMaximumValue);
 
@@ -100,8 +94,7 @@ ia2AccessibleValue::get_maximumValue(VARIANT* aMaximumValue)
 
   maximumValue = valueAcc->MaxValue();
 
-  if (IsNaN(maximumValue))
-    return S_FALSE;
+  if (IsNaN(maximumValue)) return S_FALSE;
 
   aMaximumValue->vt = VT_R8;
   aMaximumValue->dblVal = maximumValue;
@@ -111,8 +104,7 @@ ia2AccessibleValue::get_maximumValue(VARIANT* aMaximumValue)
 STDMETHODIMP
 ia2AccessibleValue::get_minimumValue(VARIANT* aMinimumValue)
 {
-  if (!aMinimumValue)
-    return E_INVALIDARG;
+  if (!aMinimumValue) return E_INVALIDARG;
 
   VariantInit(aMinimumValue);
 
@@ -125,11 +117,9 @@ ia2AccessibleValue::get_minimumValue(VARIANT* aMinimumValue)
 
   minimumValue = valueAcc->MinValue();
 
-  if (IsNaN(minimumValue))
-    return S_FALSE;
+  if (IsNaN(minimumValue)) return S_FALSE;
 
   aMinimumValue->vt = VT_R8;
   aMinimumValue->dblVal = minimumValue;
   return S_OK;
 }
-

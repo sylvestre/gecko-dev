@@ -25,9 +25,8 @@ using namespace mozilla::a11y;
 // XULTabAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULTabAccessible::
-  XULTabAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+XULTabAccessible::XULTabAccessible(nsIContent* aContent, DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -43,8 +42,7 @@ XULTabAccessible::ActionCount()
 void
 XULTabAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 {
-  if (aIndex == eAction_Switch)
-    aName.AssignLiteral("switch");
+  if (aIndex == eAction_Switch) aName.AssignLiteral("switch");
 }
 
 bool
@@ -85,10 +83,11 @@ XULTabAccessible::NativeState()
     if (NS_SUCCEEDED(tab->GetSelected(&selected)) && selected)
       state |= states::SELECTED;
 
-    if (mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::pinned,
-                              nsGkAtoms::_true, eCaseMatters))
+    if (mContent->AttrValueIs(kNameSpaceID_None,
+                              nsGkAtoms::pinned,
+                              nsGkAtoms::_true,
+                              eCaseMatters))
       state |= states::PINNED;
-
   }
 
   return state;
@@ -105,34 +104,29 @@ Relation
 XULTabAccessible::RelationByType(RelationType aType)
 {
   Relation rel = AccessibleWrap::RelationByType(aType);
-  if (aType != RelationType::LABEL_FOR)
-    return rel;
+  if (aType != RelationType::LABEL_FOR) return rel;
 
   // Expose 'LABEL_FOR' relation on tab accessible for tabpanel accessible.
   nsCOMPtr<nsIDOMXULRelatedElement> tabsElm =
-    do_QueryInterface(mContent->GetParent());
-  if (!tabsElm)
-    return rel;
+      do_QueryInterface(mContent->GetParent());
+  if (!tabsElm) return rel;
 
   nsCOMPtr<nsIDOMNode> domNode(DOMNode());
   nsCOMPtr<nsIDOMNode> tabpanelNode;
   tabsElm->GetRelatedElement(domNode, getter_AddRefs(tabpanelNode));
-  if (!tabpanelNode)
-    return rel;
+  if (!tabpanelNode) return rel;
 
   nsCOMPtr<nsIContent> tabpanelContent(do_QueryInterface(tabpanelNode));
   rel.AppendTarget(mDoc, tabpanelContent);
   return rel;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // XULTabsAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULTabsAccessible::
-  XULTabsAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  XULSelectControlAccessible(aContent, aDoc)
+XULTabsAccessible::XULTabsAccessible(nsIContent* aContent, DocAccessible* aDoc)
+    : XULSelectControlAccessible(aContent, aDoc)
 {
 }
 
@@ -161,7 +155,6 @@ XULTabsAccessible::NativeName(nsString& aName)
   return eNameOK;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // XULTabpanelsAccessible
 ////////////////////////////////////////////////////////////////////////////////
@@ -176,9 +169,9 @@ XULTabpanelsAccessible::NativeRole()
 // XULTabpanelAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULTabpanelAccessible::
-  XULTabpanelAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  AccessibleWrap(aContent, aDoc)
+XULTabpanelAccessible::XULTabpanelAccessible(nsIContent* aContent,
+                                             DocAccessible* aDoc)
+    : AccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -192,20 +185,17 @@ Relation
 XULTabpanelAccessible::RelationByType(RelationType aType)
 {
   Relation rel = AccessibleWrap::RelationByType(aType);
-  if (aType != RelationType::LABELLED_BY)
-    return rel;
+  if (aType != RelationType::LABELLED_BY) return rel;
 
   // Expose 'LABELLED_BY' relation on tabpanel accessible for tab accessible.
   nsCOMPtr<nsIDOMXULRelatedElement> tabpanelsElm =
-    do_QueryInterface(mContent->GetParent());
-  if (!tabpanelsElm)
-    return rel;
+      do_QueryInterface(mContent->GetParent());
+  if (!tabpanelsElm) return rel;
 
   nsCOMPtr<nsIDOMNode> domNode(DOMNode());
   nsCOMPtr<nsIDOMNode> tabNode;
   tabpanelsElm->GetRelatedElement(domNode, getter_AddRefs(tabNode));
-  if (!tabNode)
-    return rel;
+  if (!tabNode) return rel;
 
   nsCOMPtr<nsIContent> tabContent(do_QueryInterface(tabNode));
   rel.AppendTarget(mDoc, tabContent);

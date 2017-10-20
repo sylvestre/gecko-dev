@@ -57,11 +57,9 @@
 #define MAX_BUF 4096
 #endif
 
-#define REG_SUCCEEDED(val) \
-  (val == ERROR_SUCCESS)
+#define REG_SUCCEEDED(val) (val == ERROR_SUCCESS)
 
-#define REG_FAILED(val) \
-  (val != ERROR_SUCCESS)
+#define REG_FAILED(val) (val != ERROR_SUCCESS)
 
 #define APP_REG_NAME_BASE L"Firefox-"
 
@@ -74,16 +72,16 @@ NS_IMPL_ISUPPORTS(nsWindowsShellService, nsIShellService)
 static nsresult
 OpenKeyForReading(HKEY aKeyRoot, const nsAString& aKeyName, HKEY* aKey)
 {
-  const nsString &flatName = PromiseFlatString(aKeyName);
+  const nsString& flatName = PromiseFlatString(aKeyName);
 
   DWORD res = ::RegOpenKeyExW(aKeyRoot, flatName.get(), 0, KEY_READ, aKey);
   switch (res) {
-  case ERROR_SUCCESS:
-    break;
-  case ERROR_ACCESS_DENIED:
-    return NS_ERROR_FILE_ACCESS_DENIED;
-  case ERROR_FILE_NOT_FOUND:
-    return NS_ERROR_NOT_AVAILABLE;
+    case ERROR_SUCCESS:
+      break;
+    case ERROR_ACCESS_DENIED:
+      return NS_ERROR_FILE_ACCESS_DENIED;
+    case ERROR_FILE_NOT_FOUND:
+      return NS_ERROR_NOT_AVAILABLE;
   }
 
   return NS_OK;
@@ -94,13 +92,12 @@ GetHelperPath(nsAutoString& aPath)
 {
   nsresult rv;
   nsCOMPtr<nsIProperties> directoryService =
-    do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv);
+      do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIFile> appHelper;
-  rv = directoryService->Get(XRE_EXECUTABLE_FILE,
-                             NS_GET_IID(nsIFile),
-                             getter_AddRefs(appHelper));
+  rv = directoryService->Get(
+      XRE_EXECUTABLE_FILE, NS_GET_IID(nsIFile), getter_AddRefs(appHelper));
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = appHelper->SetNativeLeafName(NS_LITERAL_CSTRING("uninstall"));
@@ -122,8 +119,16 @@ LaunchHelper(nsAutoString& aPath)
   STARTUPINFOW si = {sizeof(si), 0};
   PROCESS_INFORMATION pi = {0};
 
-  if (!CreateProcessW(nullptr, (LPWSTR)aPath.get(), nullptr, nullptr, FALSE,
-                      0, nullptr, nullptr, &si, &pi)) {
+  if (!CreateProcessW(nullptr,
+                      (LPWSTR)aPath.get(),
+                      nullptr,
+                      nullptr,
+                      FALSE,
+                      0,
+                      nullptr,
+                      nullptr,
+                      &si,
+                      &pi)) {
     return NS_ERROR_FAILURE;
   }
 
@@ -134,14 +139,15 @@ LaunchHelper(nsAutoString& aPath)
 
 static bool
 IsPathDefaultForClass(const RefPtr<IApplicationAssociationRegistration>& pAAR,
-                      wchar_t *exePath, LPCWSTR aClassName)
+                      wchar_t* exePath,
+                      LPCWSTR aClassName)
 {
   // Make sure the Prog ID matches what we have
   LPWSTR registeredApp;
   bool isProtocol = *aClassName != L'.';
   ASSOCIATIONTYPE queryType = isProtocol ? AT_URLPROTOCOL : AT_FILEEXTENSION;
-  HRESULT hr = pAAR->QueryCurrentDefault(aClassName, queryType, AL_EFFECTIVE,
-                                         &registeredApp);
+  HRESULT hr = pAAR->QueryCurrentDefault(
+      aClassName, queryType, AL_EFFECTIVE, &registeredApp);
   if (FAILED(hr)) {
     return false;
   }
@@ -163,8 +169,8 @@ IsPathDefaultForClass(const RefPtr<IApplicationAssociationRegistration>& pAAR,
 
     wchar_t cmdFromReg[MAX_BUF] = L"";
     DWORD len = sizeof(cmdFromReg);
-    DWORD res = ::RegQueryValueExW(theKey, nullptr, nullptr, nullptr,
-                                   (LPBYTE)cmdFromReg, &len);
+    DWORD res = ::RegQueryValueExW(
+        theKey, nullptr, nullptr, nullptr, (LPBYTE)cmdFromReg, &len);
     ::RegCloseKey(theKey);
     if (REG_FAILED(res)) {
       return false;
@@ -180,17 +186,16 @@ IsPathDefaultForClass(const RefPtr<IApplicationAssociationRegistration>& pAAR,
 }
 
 static nsresult
-GetAppRegName(nsAutoString &aAppRegName)
+GetAppRegName(nsAutoString& aAppRegName)
 {
   nsresult rv;
   nsCOMPtr<nsIProperties> dirSvc =
-    do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv);
+      do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID, &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIFile> exeFile;
-  rv = dirSvc->Get(XRE_EXECUTABLE_FILE,
-                   NS_GET_IID(nsIFile),
-                   getter_AddRefs(exeFile));
+  rv = dirSvc->Get(
+      XRE_EXECUTABLE_FILE, NS_GET_IID(nsIFile), getter_AddRefs(exeFile));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIFile> appDir;
@@ -202,8 +207,9 @@ GetAppRegName(nsAutoString &aAppRegName)
   NS_ENSURE_SUCCESS(rv, rv);
 
   aAppRegName = APP_REG_NAME_BASE;
-  uint64_t hash = CityHash64(static_cast<const char *>(appDirStr.get()),
-                             appDirStr.Length() * sizeof(nsAutoString::char_type));
+  uint64_t hash =
+      CityHash64(static_cast<const char*>(appDirStr.get()),
+                 appDirStr.Length() * sizeof(nsAutoString::char_type));
   aAppRegName.AppendInt((int)(hash >> 32), 16);
   aAppRegName.AppendInt((int)hash, 16);
 
@@ -265,7 +271,7 @@ nsresult
 nsWindowsShellService::LaunchControlPanelDefaultPrograms()
 {
   // Build the path control.exe path safely
-  WCHAR controlEXEPath[MAX_PATH + 1] = { '\0' };
+  WCHAR controlEXEPath[MAX_PATH + 1] = {'\0'};
   if (!GetSystemDirectoryW(controlEXEPath, MAX_PATH)) {
     return NS_ERROR_FAILURE;
   }
@@ -277,8 +283,9 @@ nsWindowsShellService::LaunchControlPanelDefaultPrograms()
     return NS_ERROR_FAILURE;
   }
 
-  nsAutoString params(NS_LITERAL_STRING("control.exe /name Microsoft.DefaultPrograms "
-    "/page pageDefaultProgram\\pageAdvancedSettings?pszAppName="));
+  nsAutoString params(NS_LITERAL_STRING(
+      "control.exe /name Microsoft.DefaultPrograms "
+      "/page pageDefaultProgram\\pageAdvancedSettings?pszAppName="));
   nsAutoString appRegName;
   GetAppRegName(appRegName);
   params.Append(appRegName);
@@ -286,8 +293,16 @@ nsWindowsShellService::LaunchControlPanelDefaultPrograms()
   si.dwFlags = STARTF_USESHOWWINDOW;
   si.wShowWindow = SW_SHOWDEFAULT;
   PROCESS_INFORMATION pi = {0};
-  if (!CreateProcessW(controlEXEPath, static_cast<LPWSTR>(params.get()), nullptr,
-                      nullptr, FALSE, 0, nullptr, nullptr, &si, &pi)) {
+  if (!CreateProcessW(controlEXEPath,
+                      static_cast<LPWSTR>(params.get()),
+                      nullptr,
+                      nullptr,
+                      FALSE,
+                      0,
+                      nullptr,
+                      nullptr,
+                      &si,
+                      &pi)) {
     return NS_ERROR_FAILURE;
   }
   CloseHandle(pi.hProcess);
@@ -306,8 +321,7 @@ IsWindowsLogonConnected()
   }
 
   LPUSER_INFO_24 info;
-  if (NetUserGetInfo(nullptr, userName, 24, (LPBYTE *)&info)
-      != NERR_Success) {
+  if (NetUserGetInfo(nullptr, userName, 24, (LPBYTE*)&info) != NERR_Success) {
     return false;
   }
   bool connected = info->usri24_internet_identity;
@@ -321,14 +335,15 @@ SettingsAppBelievesConnected()
 {
   nsresult rv;
   nsCOMPtr<nsIWindowsRegKey> regKey =
-    do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
+      do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
   if (NS_FAILED(rv)) {
     return false;
   }
 
-  rv = regKey->Open(nsIWindowsRegKey::ROOT_KEY_CURRENT_USER,
-                    NS_LITERAL_STRING("SOFTWARE\\Microsoft\\Windows\\Shell\\Associations"),
-                    nsIWindowsRegKey::ACCESS_READ);
+  rv = regKey->Open(
+      nsIWindowsRegKey::ROOT_KEY_CURRENT_USER,
+      NS_LITERAL_STRING("SOFTWARE\\Microsoft\\Windows\\Shell\\Associations"),
+      nsIWindowsRegKey::ACCESS_READ);
   if (NS_FAILED(rv)) {
     return false;
   }
@@ -345,8 +360,8 @@ SettingsAppBelievesConnected()
 nsresult
 nsWindowsShellService::LaunchModernSettingsDialogDefaultApps()
 {
-  if (!IsWindowsBuildOrLater(14965) &&
-      !IsWindowsLogonConnected() && SettingsAppBelievesConnected()) {
+  if (!IsWindowsBuildOrLater(14965) && !IsWindowsLogonConnected() &&
+      SettingsAppBelievesConnected()) {
     // Use the classic Control Panel to work around a bug of older
     // builds of Windows 10.
     return LaunchControlPanelDefaultPrograms();
@@ -362,17 +377,21 @@ nsWindowsShellService::LaunchModernSettingsDialogDefaultApps()
   if (SUCCEEDED(hr)) {
     DWORD pid;
     hr = pActivator->ActivateApplication(
-           L"windows.immersivecontrolpanel_cw5n1h2txyewy"
-           L"!microsoft.windows.immersivecontrolpanel",
-           L"page=SettingsPageAppsDefaults", AO_NONE, &pid);
+        L"windows.immersivecontrolpanel_cw5n1h2txyewy"
+        L"!microsoft.windows.immersivecontrolpanel",
+        L"page=SettingsPageAppsDefaults",
+        AO_NONE,
+        &pid);
     if (SUCCEEDED(hr)) {
       // Do not check error because we could at least open
       // the "Default apps" setting.
       pActivator->ActivateApplication(
-             L"windows.immersivecontrolpanel_cw5n1h2txyewy"
-             L"!microsoft.windows.immersivecontrolpanel",
-             L"page=SettingsPageAppsDefaults"
-             L"&target=SystemSettings_DefaultApps_Browser", AO_NONE, &pid);
+          L"windows.immersivecontrolpanel_cw5n1h2txyewy"
+          L"!microsoft.windows.immersivecontrolpanel",
+          L"page=SettingsPageAppsDefaults"
+          L"&target=SystemSettings_DefaultApps_Browser",
+          AO_NONE,
+          &pid);
     }
     pActivator->Release();
     return SUCCEEDED(hr) ? NS_OK : NS_ERROR_FAILURE;
@@ -384,14 +403,14 @@ nsresult
 nsWindowsShellService::InvokeHTTPOpenAsVerb()
 {
   nsCOMPtr<nsIURLFormatter> formatter(
-    do_GetService("@mozilla.org/toolkit/URLFormatterService;1"));
+      do_GetService("@mozilla.org/toolkit/URLFormatterService;1"));
   if (!formatter) {
     return NS_ERROR_UNEXPECTED;
   }
 
   nsString urlStr;
   nsresult rv = formatter->FormatURLPref(
-    NS_LITERAL_STRING("app.support.baseURL"), urlStr);
+      NS_LITERAL_STRING("app.support.baseURL"), urlStr);
   if (NS_FAILED(rv)) {
     return rv;
   }
@@ -400,7 +419,7 @@ nsWindowsShellService::InvokeHTTPOpenAsVerb()
   }
   urlStr.AppendLiteral("win10-default-browser");
 
-  SHELLEXECUTEINFOW seinfo = { sizeof(SHELLEXECUTEINFOW) };
+  SHELLEXECUTEINFOW seinfo = {sizeof(SHELLEXECUTEINFOW)};
   seinfo.lpVerb = L"openas";
   seinfo.lpFile = urlStr.get();
   seinfo.nShow = SW_SHOWNORMAL;
@@ -416,9 +435,8 @@ nsWindowsShellService::LaunchHTTPHandlerPane()
   OPENASINFO info;
   info.pcszFile = L"http";
   info.pcszClass = nullptr;
-  info.oaifInFlags = OAIF_FORCE_REGISTRATION |
-                     OAIF_URL_PROTOCOL |
-                     OAIF_REGISTER_EXT;
+  info.oaifInFlags =
+      OAIF_FORCE_REGISTRATION | OAIF_URL_PROTOCOL | OAIF_REGISTER_EXT;
 
   HRESULT hr = SHOpenWithDialog(nullptr, &info);
   if (SUCCEEDED(hr) || (hr == HRESULT_FROM_WIN32(ERROR_CANCELLED))) {
@@ -431,8 +449,7 @@ NS_IMETHODIMP
 nsWindowsShellService::SetDefaultBrowser(bool aClaimAllTypes, bool aForAllUsers)
 {
   nsAutoString appHelperPath;
-  if (NS_FAILED(GetHelperPath(appHelperPath)))
-    return NS_ERROR_FAILURE;
+  if (NS_FAILED(GetHelperPath(appHelperPath))) return NS_ERROR_FAILURE;
 
   if (aForAllUsers) {
     appHelperPath.AppendLiteral(" /SetAsDefaultAppGlobal");
@@ -476,10 +493,10 @@ nsWindowsShellService::SetDefaultBrowser(bool aClaimAllTypes, bool aForAllUsers)
 
   nsCOMPtr<nsIPrefBranch> prefs(do_GetService(NS_PREFSERVICE_CONTRACTID));
   if (prefs) {
-    (void) prefs->SetBoolPref(PREF_CHECKDEFAULTBROWSER, true);
+    (void)prefs->SetBoolPref(PREF_CHECKDEFAULTBROWSER, true);
     // Reset the number of times the dialog should be shown
     // before it is silenced.
-    (void) prefs->SetIntPref(PREF_DEFAULTBROWSERCHECKCOUNT, 0);
+    (void)prefs->SetIntPref(PREF_DEFAULTBROWSERCHECKCOUNT, 0);
   }
 
   return rv;
@@ -490,9 +507,8 @@ WriteBitmap(nsIFile* aFile, imgIContainer* aImage)
 {
   nsresult rv;
 
-  RefPtr<SourceSurface> surface =
-    aImage->GetFrame(imgIContainer::FRAME_FIRST,
-                     imgIContainer::FLAG_SYNC_DECODE);
+  RefPtr<SourceSurface> surface = aImage->GetFrame(
+      imgIContainer::FRAME_FIRST, imgIContainer::FLAG_SYNC_DECODE);
   NS_ENSURE_TRUE(surface, NS_ERROR_FAILURE);
 
   // For either of the following formats we want to set the biBitCount member
@@ -517,7 +533,7 @@ WriteBitmap(nsIFile* aFile, imgIContainer* aImage)
   bmi.biWidth = width;
   bmi.biHeight = height;
   bmi.biPlanes = 1;
-  bmi.biBitCount = (WORD)bytesPerPixel*8;
+  bmi.biBitCount = (WORD)bytesPerPixel * 8;
   bmi.biCompression = BI_RGB;
   bmi.biSizeImage = bytesPerRow * height;
   bmi.biXPelsPerMeter = 0;
@@ -526,7 +542,7 @@ WriteBitmap(nsIFile* aFile, imgIContainer* aImage)
   bmi.biClrImportant = 0;
 
   BITMAPFILEHEADER bf;
-  bf.bfType = 0x4D42; // 'BM'
+  bf.bfType = 0x4D42;  // 'BM'
   bf.bfReserved1 = 0;
   bf.bfReserved2 = 0;
   bf.bfOffBits = sizeof(BITMAPFILEHEADER) + sizeof(BITMAPINFOHEADER);
@@ -587,25 +603,22 @@ nsWindowsShellService::SetDesktopBackground(nsIDOMElement* aElement,
 
   nsresult rv;
   nsCOMPtr<nsIImageLoadingContent> imageContent =
-    do_QueryInterface(aElement, &rv);
-  if (!imageContent)
-    return rv;
+      do_QueryInterface(aElement, &rv);
+  if (!imageContent) return rv;
 
   // get the image container
   nsCOMPtr<imgIRequest> request;
   rv = imageContent->GetRequest(nsIImageLoadingContent::CURRENT_REQUEST,
                                 getter_AddRefs(request));
-  if (!request)
-    return rv;
+  if (!request) return rv;
 
   nsCOMPtr<imgIContainer> container;
   rv = request->GetImage(getter_AddRefs(container));
-  if (!container)
-    return NS_ERROR_FAILURE;
+  if (!container) return NS_ERROR_FAILURE;
 
   // get the file name from localized strings
-  nsCOMPtr<nsIStringBundleService>
-    bundleService(do_GetService(NS_STRINGBUNDLE_CONTRACTID, &rv));
+  nsCOMPtr<nsIStringBundleService> bundleService(
+      do_GetService(NS_STRINGBUNDLE_CONTRACTID, &rv));
   NS_ENSURE_SUCCESS(rv, rv);
 
   nsCOMPtr<nsIStringBundle> shellBundle;
@@ -639,7 +652,7 @@ nsWindowsShellService::SetDesktopBackground(nsIDOMElement* aElement,
   // if the file was written successfully, set it as the system wallpaper
   if (NS_SUCCEEDED(rv)) {
     nsCOMPtr<nsIWindowsRegKey> regKey =
-      do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
+        do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
     NS_ENSURE_SUCCESS(rv, rv);
 
     rv = regKey->Create(nsIWindowsRegKey::ROOT_KEY_CURRENT_USER,
@@ -679,7 +692,9 @@ nsWindowsShellService::SetDesktopBackground(nsIDOMElement* aElement,
     rv = regKey->Close();
     NS_ENSURE_SUCCESS(rv, rv);
 
-    ::SystemParametersInfoW(SPI_SETDESKWALLPAPER, 0, (PVOID)path.get(),
+    ::SystemParametersInfoW(SPI_SETDESKWALLPAPER,
+                            0,
+                            (PVOID)path.get(),
                             SPIF_UPDATEINIFILE | SPIF_SENDCHANGE);
   }
   return rv;
@@ -690,12 +705,12 @@ nsWindowsShellService::OpenApplication(int32_t aApplication)
 {
   nsAutoString application;
   switch (aApplication) {
-  case nsIShellService::APPLICATION_MAIL:
-    application.AssignLiteral("Mail");
-    break;
-  case nsIShellService::APPLICATION_NEWS:
-    application.AssignLiteral("News");
-    break;
+    case nsIShellService::APPLICATION_MAIL:
+      application.AssignLiteral("Mail");
+      break;
+    case nsIShellService::APPLICATION_NEWS:
+      application.AssignLiteral("News");
+      break;
   }
 
   // The Default Client section of the Windows Registry looks like this:
@@ -711,16 +726,14 @@ nsWindowsShellService::OpenApplication(int32_t aApplication)
   // Find the default application for this class.
   HKEY theKey;
   nsresult rv = OpenKeyForReading(HKEY_CLASSES_ROOT, application, &theKey);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   wchar_t buf[MAX_BUF];
   DWORD type, len = sizeof buf;
-  DWORD res = ::RegQueryValueExW(theKey, EmptyString().get(), 0,
-                                 &type, (LPBYTE)&buf, &len);
+  DWORD res = ::RegQueryValueExW(
+      theKey, EmptyString().get(), 0, &type, (LPBYTE)&buf, &len);
 
-  if (REG_FAILED(res) || !*buf)
-    return NS_OK;
+  if (REG_FAILED(res) || !*buf) return NS_OK;
 
   // Close the key we opened.
   ::RegCloseKey(theKey);
@@ -731,15 +744,13 @@ nsWindowsShellService::OpenApplication(int32_t aApplication)
   application.AppendLiteral("\\shell\\open\\command");
 
   rv = OpenKeyForReading(HKEY_CLASSES_ROOT, application, &theKey);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   ::ZeroMemory(buf, sizeof(buf));
   len = sizeof buf;
-  res = ::RegQueryValueExW(theKey, EmptyString().get(), 0,
-                           &type, (LPBYTE)&buf, &len);
-  if (REG_FAILED(res) || !*buf)
-    return NS_ERROR_FAILURE;
+  res = ::RegQueryValueExW(
+      theKey, EmptyString().get(), 0, &type, (LPBYTE)&buf, &len);
+  if (REG_FAILED(res) || !*buf) return NS_ERROR_FAILURE;
 
   // Close the key we opened.
   ::RegCloseKey(theKey);
@@ -752,24 +763,24 @@ nsWindowsShellService::OpenApplication(int32_t aApplication)
   ::ZeroMemory(buf, sizeof(buf));
   do {
     cursor = path.FindChar('%', cursor);
-    if (cursor < 0)
-      break;
+    if (cursor < 0) break;
 
     temp = path.FindChar('%', cursor + 1);
     ++cursor;
 
     ::ZeroMemory(&buf, sizeof(buf));
 
-    ::GetEnvironmentVariableW(nsAutoString(Substring(path, cursor, temp - cursor)).get(),
-                              buf, sizeof(buf));
+    ::GetEnvironmentVariableW(
+        nsAutoString(Substring(path, cursor, temp - cursor)).get(),
+        buf,
+        sizeof(buf));
 
     // "+ 2" is to subtract the extra characters used to delimit the environment
     // variable ('%').
     path.Replace((cursor - 1), temp - cursor + 2, nsDependentString(buf));
 
     ++cursor;
-  }
-  while (cursor < end);
+  } while (cursor < end);
 
   STARTUPINFOW si;
   PROCESS_INFORMATION pi;
@@ -777,11 +788,17 @@ nsWindowsShellService::OpenApplication(int32_t aApplication)
   ::ZeroMemory(&si, sizeof(STARTUPINFOW));
   ::ZeroMemory(&pi, sizeof(PROCESS_INFORMATION));
 
-  BOOL success = ::CreateProcessW(nullptr, (LPWSTR)path.get(), nullptr,
-                                  nullptr, FALSE, 0, nullptr,  nullptr,
-                                  &si, &pi);
-  if (!success)
-    return NS_ERROR_FAILURE;
+  BOOL success = ::CreateProcessW(nullptr,
+                                  (LPWSTR)path.get(),
+                                  nullptr,
+                                  nullptr,
+                                  FALSE,
+                                  0,
+                                  nullptr,
+                                  nullptr,
+                                  &si,
+                                  &pi);
+  if (!success) return NS_ERROR_FAILURE;
 
   return NS_OK;
 }
@@ -790,24 +807,25 @@ NS_IMETHODIMP
 nsWindowsShellService::GetDesktopBackgroundColor(uint32_t* aColor)
 {
   uint32_t color = ::GetSysColor(COLOR_DESKTOP);
-  *aColor = (GetRValue(color) << 16) | (GetGValue(color) << 8) | GetBValue(color);
+  *aColor =
+      (GetRValue(color) << 16) | (GetGValue(color) << 8) | GetBValue(color);
   return NS_OK;
 }
 
 NS_IMETHODIMP
 nsWindowsShellService::SetDesktopBackgroundColor(uint32_t aColor)
 {
-  int aParameters[2] = { COLOR_BACKGROUND, COLOR_DESKTOP };
+  int aParameters[2] = {COLOR_BACKGROUND, COLOR_DESKTOP};
   BYTE r = (aColor >> 16);
   BYTE g = (aColor << 16) >> 24;
   BYTE b = (aColor << 24) >> 24;
-  COLORREF colors[2] = { RGB(r,g,b), RGB(r,g,b) };
+  COLORREF colors[2] = {RGB(r, g, b), RGB(r, g, b)};
 
   ::SetSysColors(sizeof(aParameters) / sizeof(int), aParameters, colors);
 
   nsresult rv;
   nsCOMPtr<nsIWindowsRegKey> regKey =
-    do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
+      do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = regKey->Create(nsIWindowsRegKey::ROOT_KEY_CURRENT_USER,
@@ -825,13 +843,9 @@ nsWindowsShellService::SetDesktopBackgroundColor(uint32_t aColor)
   return regKey->Close();
 }
 
-nsWindowsShellService::nsWindowsShellService()
-{
-}
+nsWindowsShellService::nsWindowsShellService() {}
 
-nsWindowsShellService::~nsWindowsShellService()
-{
-}
+nsWindowsShellService::~nsWindowsShellService() {}
 
 NS_IMETHODIMP
 nsWindowsShellService::OpenApplicationWithURI(nsIFile* aApplication,
@@ -839,13 +853,11 @@ nsWindowsShellService::OpenApplicationWithURI(nsIFile* aApplication,
 {
   nsresult rv;
   nsCOMPtr<nsIProcess> process =
-    do_CreateInstance("@mozilla.org/process/util;1", &rv);
-  if (NS_FAILED(rv))
-    return rv;
+      do_CreateInstance("@mozilla.org/process/util;1", &rv);
+  if (NS_FAILED(rv)) return rv;
 
   rv = process->Init(aApplication);
-  if (NS_FAILED(rv))
-    return rv;
+  if (NS_FAILED(rv)) return rv;
 
   const nsCString spec(aURI);
   const char* specStr = spec.get();
@@ -859,7 +871,7 @@ nsWindowsShellService::GetDefaultFeedReader(nsIFile** _retval)
 
   nsresult rv;
   nsCOMPtr<nsIWindowsRegKey> regKey =
-    do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
+      do_CreateInstance("@mozilla.org/windows-registry-key;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = regKey->Open(nsIWindowsRegKey::ROOT_KEY_CLASSES_ROOT,
@@ -870,20 +882,18 @@ nsWindowsShellService::GetDefaultFeedReader(nsIFile** _retval)
   nsAutoString path;
   rv = regKey->ReadStringValue(EmptyString(), path);
   NS_ENSURE_SUCCESS(rv, rv);
-  if (path.IsEmpty())
-    return NS_ERROR_FAILURE;
+  if (path.IsEmpty()) return NS_ERROR_FAILURE;
 
   if (path.First() == '"') {
     // Everything inside the quotes
     path = Substring(path, 1, path.FindChar('"', 1) - 1);
-  }
-  else {
+  } else {
     // Everything up to the first space
     path = Substring(path, 0, path.FindChar(' '));
   }
 
   nsCOMPtr<nsIFile> defaultReader =
-    do_CreateInstance("@mozilla.org/file/local;1", &rv);
+      do_CreateInstance("@mozilla.org/file/local;1", &rv);
   NS_ENSURE_SUCCESS(rv, rv);
 
   rv = defaultReader->InitWithPath(path);
@@ -892,8 +902,7 @@ nsWindowsShellService::GetDefaultFeedReader(nsIFile** _retval)
   bool exists;
   rv = defaultReader->Exists(&exists);
   NS_ENSURE_SUCCESS(rv, rv);
-  if (!exists)
-    return NS_ERROR_FAILURE;
+  if (!exists) return NS_ERROR_FAILURE;
 
   NS_ADDREF(*_retval = defaultReader);
   return NS_OK;

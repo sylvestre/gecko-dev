@@ -9,23 +9,25 @@
 
 class xpcAccessibilityService : public nsIAccessibilityService
 {
-
-public:
+ public:
   NS_DECL_ISUPPORTS
   NS_DECL_NSIACCESSIBILITYSERVICE
 
   /**
    * Return true if xpc accessibility service is in use.
    */
-  static bool IsInUse() {
+  static bool IsInUse()
+  {
     // When ref count goes down to 1 (held internally as a static reference),
     // it means that there are no more external references and thus it is not in
     // use.
-    return gXPCAccessibilityService ? gXPCAccessibilityService->mRefCnt > 1 : false;
+    return gXPCAccessibilityService ? gXPCAccessibilityService->mRefCnt > 1
+                                    : false;
   }
 
-protected:
-  virtual ~xpcAccessibilityService() {
+ protected:
+  virtual ~xpcAccessibilityService()
+  {
     if (mShutdownTimer) {
       mShutdownTimer->Cancel();
       mShutdownTimer = nullptr;
@@ -33,10 +35,10 @@ protected:
     gXPCAccessibilityService = nullptr;
   }
 
-private:
+ private:
   // xpcAccessibilityService creation is controlled by friend
   // NS_GetAccessibilityService, keep constructor private.
-  xpcAccessibilityService() { };
+  xpcAccessibilityService(){};
 
   nsCOMPtr<nsITimer> mShutdownTimer;
 
@@ -56,8 +58,13 @@ private:
 
 // for component registration
 // {3b265b69-f813-48ff-880d-d88d101af404}
-#define NS_ACCESSIBILITY_SERVICE_CID \
-{ 0x3b265b69, 0xf813, 0x48ff, { 0x88, 0x0d, 0xd8, 0x8d, 0x10, 0x1a, 0xf4, 0x04 } }
+#define NS_ACCESSIBILITY_SERVICE_CID                 \
+  {                                                  \
+    0x3b265b69, 0xf813, 0x48ff,                      \
+    {                                                \
+      0x88, 0x0d, 0xd8, 0x8d, 0x10, 0x1a, 0xf4, 0x04 \
+    }                                                \
+  }
 
 extern nsresult
 NS_GetAccessibilityService(nsIAccessibilityService** aResult);

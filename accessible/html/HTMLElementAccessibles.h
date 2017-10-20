@@ -16,10 +16,11 @@ namespace a11y {
  */
 class HTMLHRAccessible : public LeafAccessible
 {
-public:
-
-  HTMLHRAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    LeafAccessible(aContent, aDoc) {}
+ public:
+  HTMLHRAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : LeafAccessible(aContent, aDoc)
+  {
+  }
 
   // Accessible
   virtual a11y::role NativeRole() override;
@@ -30,9 +31,9 @@ public:
  */
 class HTMLBRAccessible : public LeafAccessible
 {
-public:
-  HTMLBRAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    LeafAccessible(aContent, aDoc)
+ public:
+  HTMLBRAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : LeafAccessible(aContent, aDoc)
   {
     mType = eHTMLBRType;
     mGenericTypes |= eText;
@@ -42,7 +43,7 @@ public:
   virtual a11y::role NativeRole() override;
   virtual uint64_t NativeState() override;
 
-protected:
+ protected:
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
 };
@@ -52,10 +53,11 @@ protected:
  */
 class HTMLLabelAccessible : public HyperTextAccessibleWrap
 {
-public:
-
-  HTMLLabelAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    HyperTextAccessibleWrap(aContent, aDoc) {}
+ public:
+  HTMLLabelAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : HyperTextAccessibleWrap(aContent, aDoc)
+  {
+  }
 
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -67,7 +69,7 @@ public:
   virtual void ActionNameAt(uint8_t aIndex, nsAString& aName) override;
   virtual bool DoAction(uint8_t aIndex) override;
 
-protected:
+ protected:
   virtual ~HTMLLabelAccessible() {}
   virtual ENameValueFlag NativeName(nsString& aName) override;
 };
@@ -77,17 +79,18 @@ protected:
  */
 class HTMLOutputAccessible : public HyperTextAccessibleWrap
 {
-public:
-
-  HTMLOutputAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    HyperTextAccessibleWrap(aContent, aDoc) {}
+ public:
+  HTMLOutputAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : HyperTextAccessibleWrap(aContent, aDoc)
+  {
+  }
 
   NS_DECL_ISUPPORTS_INHERITED
 
   // Accessible
   virtual Relation RelationByType(RelationType aType) override;
 
-protected:
+ protected:
   virtual ~HTMLOutputAccessible() {}
 };
 
@@ -96,9 +99,11 @@ protected:
  */
 class HTMLSummaryAccessible : public HyperTextAccessibleWrap
 {
-
-public:
-  enum { eAction_Click = 0 };
+ public:
+  enum
+  {
+    eAction_Click = 0
+  };
 
   HTMLSummaryAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
@@ -119,10 +124,11 @@ public:
  */
 class HTMLHeaderOrFooterAccessible : public HyperTextAccessibleWrap
 {
-public:
-
-  HTMLHeaderOrFooterAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    HyperTextAccessibleWrap(aContent, aDoc) {}
+ public:
+  HTMLHeaderOrFooterAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : HyperTextAccessibleWrap(aContent, aDoc)
+  {
+  }
 
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -130,11 +136,11 @@ public:
   virtual nsAtom* LandmarkRole() const override;
   virtual a11y::role NativeRole() override;
 
-protected:
+ protected:
   virtual ~HTMLHeaderOrFooterAccessible() {}
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

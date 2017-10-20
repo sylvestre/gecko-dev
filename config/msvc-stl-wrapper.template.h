@@ -5,18 +5,21 @@
  * License, v. 2.0. If a copy of the MPL was not distributed with this
  * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
 
-#ifndef mozilla_${HEADER}_h
-#define mozilla_${HEADER}_h
+#ifndef mozilla_${HEADER } _h
+#define mozilla_$ {HEADER} _h
 
 #if _HAS_EXCEPTIONS
-#  error "STL code can only be used with -fno-exceptions"
+#error "STL code can only be used with -fno-exceptions"
 #endif
 
 // Include mozalloc after the STL header and all other headers it includes
 // have been preprocessed.
 #if !defined(MOZ_INCLUDE_MOZALLOC_H)
-#  define MOZ_INCLUDE_MOZALLOC_H
-#  define MOZ_INCLUDE_MOZALLOC_H_FROM_${HEADER}
+#define MOZ_INCLUDE_MOZALLOC_H
+#define MOZ_INCLUDE_MOZALLOC_H_FROM_$ \
+  {                                   \
+    HEADER                            \
+  }
 #endif
 
 #ifdef _DEBUG
@@ -50,8 +53,8 @@
 //        will generate the warning which we can't modify.
 // C4530: We know that code won't be able to catch exceptions,
 //        but that's OK because we're not throwing them.
-#pragma warning( push )
-#pragma warning( disable : 4275 4530 )
+#pragma warning(push)
+#pragma warning(disable : 4275 4530)
 
 #ifdef __clang__
 #include_next <${HEADER}>
@@ -59,17 +62,17 @@
 #include <${HEADER_PATH}>
 #endif
 
-#pragma warning( pop )
+#pragma warning(pop)
 
-#ifdef MOZ_INCLUDE_MOZALLOC_H_FROM_${HEADER}
+#ifdef MOZ_INCLUDE_MOZALLOC_H_FROM_${HEADER }
 // See if we're in code that can use mozalloc.  NB: this duplicates
 // code in nscore.h because nscore.h pulls in prtypes.h, and chromium
 // can't build with that being included before base/basictypes.h.
-#  if !defined(XPCOM_GLUE) && !defined(NS_NO_XPCOM) && !defined(MOZ_NO_MOZALLOC)
-#    include "mozilla/mozalloc.h"
-#  else
-#    error "STL code can only be used with infallible ::operator new()"
-#  endif
+#if !defined(XPCOM_GLUE) && !defined(NS_NO_XPCOM) && !defined(MOZ_NO_MOZALLOC)
+#include "mozilla/mozalloc.h"
+#else
+#error "STL code can only be used with infallible ::operator new()"
+#endif
 #endif
 
 #endif  // if mozilla_${HEADER}_h

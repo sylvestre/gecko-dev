@@ -24,9 +24,11 @@ class ARIAGridAccessibleWrap : public ARIAGridAccessible,
 {
   ~ARIAGridAccessibleWrap() {}
 
-public:
-  ARIAGridAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc) :
-    ARIAGridAccessible(aContent, aDoc), ia2AccessibleTable(this) {}
+ public:
+  ARIAGridAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc)
+      : ARIAGridAccessible(aContent, aDoc), ia2AccessibleTable(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -46,9 +48,11 @@ class ARIAGridCellAccessibleWrap : public ARIAGridCellAccessible,
 {
   ~ARIAGridCellAccessibleWrap() {}
 
-public:
-  ARIAGridCellAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc) :
-    ARIAGridCellAccessible(aContent, aDoc), ia2AccessibleTableCell(this) {}
+ public:
+  ARIAGridCellAccessibleWrap(nsIContent* aContent, DocAccessible* aDoc)
+      : ARIAGridCellAccessible(aContent, aDoc), ia2AccessibleTableCell(this)
+  {
+  }
 
   // IUnknown
   DECL_IUNKNOWN_INHERITED
@@ -59,7 +63,7 @@ public:
   virtual void Shutdown() override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

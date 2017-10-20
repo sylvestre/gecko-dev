@@ -34,12 +34,12 @@ namespace a11y {
  */
 class IDSet
 {
-public:
+ public:
   constexpr explicit IDSet(const uint32_t aMaxIdBits)
-    : mBitSet()
-    , mIdx(0)
-    , mMaxId((1UL << aMaxIdBits) - 1UL)
-    , mMaxIdx(mMaxId / bitsPerElt)
+      : mBitSet(),
+        mIdx(0),
+        mMaxId((1UL << aMaxIdBits) - 1UL),
+        mMaxIdx(mMaxId / bitsPerElt)
   {
   }
 
@@ -97,16 +97,17 @@ public:
     }
   }
 
-private:
+ private:
   static const unsigned int wordsPerElt = 2;
   static const unsigned int bitsPerWord = 64;
   static const unsigned int bitsPerElt = wordsPerElt * bitsPerWord;
 
   struct BitSetElt : mozilla::SplayTreeNode<BitSetElt>
   {
-    explicit BitSetElt(uint32_t aIdx) :
-      mIdx(aIdx)
-    { mBitvec[0] = mBitvec[1] = 0; }
+    explicit BitSetElt(uint32_t aIdx) : mIdx(aIdx)
+    {
+      mBitvec[0] = mBitvec[1] = 0;
+    }
 
     uint64_t mBitvec[wordsPerElt];
     uint32_t mIdx;
@@ -130,7 +131,7 @@ private:
   const uint32_t mMaxIdx;
 };
 
-}
-}
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

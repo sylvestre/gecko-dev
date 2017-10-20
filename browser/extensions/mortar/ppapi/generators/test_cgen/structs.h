@@ -17,7 +17,6 @@
  * This file will test that the IDL snippet matches the comment.
  */
 
-
 /**
  * @addtogroup Typedefs
  * @{
@@ -33,10 +32,7 @@ typedef uint8_t s_array[3];
  * @{
  */
 /* typedef enum { esv1 = 1, esv2 = 2 } senum; */
-typedef enum {
-  esv1 = 1,
-  esv2 = 2
-} senum;
+typedef enum { esv1 = 1, esv2 = 2 } senum;
 /**
  * @}
  */
@@ -46,13 +42,15 @@ typedef enum {
  * @{
  */
 /* struct st1 { int32_t i; senum j; }; */
-struct st1 {
+struct st1
+{
   int32_t i;
   senum j;
 };
 
 /* struct st2 { s_array pixels[640][480]; }; */
-struct st2 {
+struct st2
+{
   s_array pixels[640][480];
 };
 /**
@@ -82,7 +80,8 @@ typedef func_t (*findfunc_t)(const char* x);
  *  findfunc_t myfunc;
  * };
  */
-struct sfoo {
+struct sfoo
+{
   s_array screen[480][640];
   findfunc_t myfunc;
 };
@@ -90,5 +89,4 @@ struct sfoo {
  * @}
  */
 
-#endif  /* PPAPI_C_TEST_CGEN_STRUCTS_H_ */
-
+#endif /* PPAPI_C_TEST_CGEN_STRUCTS_H_ */

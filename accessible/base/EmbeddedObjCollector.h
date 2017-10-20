@@ -18,8 +18,8 @@ class Accessible;
  */
 class EmbeddedObjCollector final
 {
-public:
-  ~EmbeddedObjCollector() { }
+ public:
+  ~EmbeddedObjCollector() {}
 
   /**
    * Return index of the given accessible within the collection.
@@ -36,7 +36,7 @@ public:
    */
   Accessible* GetAccessibleAt(uint32_t aIndex);
 
-protected:
+ protected:
   /**
    * Ensure accessible at the given index is stored and return it.
    */
@@ -48,8 +48,10 @@ protected:
   int32_t EnsureNGetIndex(Accessible* aAccessible);
 
   // Make sure it's used by Accessible class only.
-  explicit EmbeddedObjCollector(Accessible* aRoot) :
-    mRoot(aRoot), mRootChildIdx(0) {}
+  explicit EmbeddedObjCollector(Accessible* aRoot)
+      : mRoot(aRoot), mRootChildIdx(0)
+  {
+  }
 
   /**
    * Append the object to collection.
@@ -63,7 +65,7 @@ protected:
   nsTArray<Accessible*> mObjects;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

@@ -18,17 +18,17 @@ namespace a11y {
 
 class TextRange;
 
-#define NS_ACCESSIBLETEXTRANGE_IMPL_IID                 \
-{  /* 133c8bf4-4913-4355-bd50-426bd1d6e1ad */           \
-  0xb17652d9,                                           \
-  0x4f54,                                               \
-  0x4c56,                                               \
-  { 0xbb, 0x62, 0x6d, 0x5b, 0xf1, 0xef, 0x91, 0x0c }    \
-}
+#define NS_ACCESSIBLETEXTRANGE_IMPL_IID              \
+  { /* 133c8bf4-4913-4355-bd50-426bd1d6e1ad */       \
+    0xb17652d9, 0x4f54, 0x4c56,                      \
+    {                                                \
+      0xbb, 0x62, 0x6d, 0x5b, 0xf1, 0xef, 0x91, 0x0c \
+    }                                                \
+  }
 
 class xpcAccessibleTextRange final : public nsIAccessibleTextRange
 {
-public:
+ public:
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
   NS_DECL_CYCLE_COLLECTION_CLASS(xpcAccessibleTextRange)
 
@@ -38,7 +38,8 @@ public:
   NS_IMETHOD GetEndOffset(int32_t* aOffset) final override;
   NS_IMETHOD GetContainer(nsIAccessible** aContainer) final override;
   NS_IMETHOD GetEmbeddedChildren(nsIArray** aList) final override;
-  NS_IMETHOD Compare(nsIAccessibleTextRange* aOtherRange, bool* aResult) final override;
+  NS_IMETHOD Compare(nsIAccessibleTextRange* aOtherRange,
+                     bool* aResult) final override;
   NS_IMETHOD CompareEndPoints(uint32_t aEndPoint,
                               nsIAccessibleTextRange* aOtherRange,
                               uint32_t aOtherRangeEndPoint,
@@ -50,9 +51,13 @@ public:
   NS_IMETHOD MoveEnd(uint32_t aUnit, int32_t aCount) final override;
   NS_IMETHOD Normalize(uint32_t aUnit) final override;
   NS_IMETHOD Crop(nsIAccessible* aContainer, bool* aSuccess) final override;
-  NS_IMETHOD FindText(const nsAString& aText, bool aIsBackward, bool aIsIgnoreCase,
+  NS_IMETHOD FindText(const nsAString& aText,
+                      bool aIsBackward,
+                      bool aIsIgnoreCase,
                       nsIAccessibleTextRange** aRange) final override;
-  NS_IMETHOD FindAttr(uint32_t aAttr, nsIVariant* aVal, bool aIsBackward,
+  NS_IMETHOD FindAttr(uint32_t aAttr,
+                      nsIVariant* aVal,
+                      bool aIsBackward,
                       nsIAccessibleTextRange** aRange) final override;
   NS_IMETHOD AddToSelection() final override;
   NS_IMETHOD RemoveFromSelection() final override;
@@ -61,9 +66,11 @@ public:
 
   NS_DECLARE_STATIC_IID_ACCESSOR(NS_ACCESSIBLETEXTRANGE_IMPL_IID)
 
-private:
-  explicit xpcAccessibleTextRange(TextRange&& aRange) :
-    mRange(Forward<TextRange>(aRange)) {}
+ private:
+  explicit xpcAccessibleTextRange(TextRange&& aRange)
+      : mRange(Forward<TextRange>(aRange))
+  {
+  }
   xpcAccessibleTextRange() {}
 
   ~xpcAccessibleTextRange() {}
@@ -71,7 +78,7 @@ private:
   friend class xpcAccessibleHyperText;
 
   xpcAccessibleTextRange(const xpcAccessibleTextRange&) = delete;
-  xpcAccessibleTextRange& operator =(const xpcAccessibleTextRange&) = delete;
+  xpcAccessibleTextRange& operator=(const xpcAccessibleTextRange&) = delete;
 
   TextRange mRange;
 };
@@ -79,7 +86,7 @@ private:
 NS_DEFINE_STATIC_IID_ACCESSOR(xpcAccessibleTextRange,
                               NS_ACCESSIBLETEXTRANGE_IMPL_IID)
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

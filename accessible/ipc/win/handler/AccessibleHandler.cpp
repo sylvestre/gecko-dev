@@ -6,7 +6,7 @@
 
 #if defined(MOZILLA_INTERNAL_API)
 #error This code is NOT for internal Gecko use!
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #define INITGUID
 
@@ -56,12 +56,12 @@ AccessibleHandler::Create(IUnknown* aOuter, REFIID aIid, void** aOutInterface)
 }
 
 AccessibleHandler::AccessibleHandler(IUnknown* aOuter, HRESULT* aResult)
-  : mscom::Handler(aOuter, aResult)
-  , mDispatch(nullptr)
-  , mIA2PassThru(nullptr)
-  , mServProvPassThru(nullptr)
-  , mCachedData()
-  , mCacheGen(0)
+    : mscom::Handler(aOuter, aResult),
+      mDispatch(nullptr),
+      mIA2PassThru(nullptr),
+      mServProvPassThru(nullptr),
+      mCachedData(),
+      mCacheGen(0)
 {
   RefPtr<AccessibleHandlerControl> ctl(gControlFactory.GetOrCreateSingleton());
   MOZ_ASSERT(ctl);
@@ -134,7 +134,8 @@ AccessibleHandler::ResolveIDispatch()
   HRESULT hr;
 
   if (!mDispatchUnk) {
-    RefPtr<AccessibleHandlerControl> ctl(gControlFactory.GetOrCreateSingleton());
+    RefPtr<AccessibleHandlerControl> ctl(
+        gControlFactory.GetOrCreateSingleton());
     if (!ctl) {
       return E_OUTOFMEMORY;
     }
@@ -145,8 +146,10 @@ AccessibleHandler::ResolveIDispatch()
       return hr;
     }
 
-    hr = ::CreateStdDispatch(GetOuter(), static_cast<NEWEST_IA2_INTERFACE*>(this),
-                             typeinfo, getter_AddRefs(mDispatchUnk));
+    hr = ::CreateStdDispatch(GetOuter(),
+                             static_cast<NEWEST_IA2_INTERFACE*>(this),
+                             typeinfo,
+                             getter_AddRefs(mDispatchUnk));
     if (FAILED(hr)) {
       return hr;
     }
@@ -163,7 +166,8 @@ AccessibleHandler::ResolveIDispatch()
 }
 
 HRESULT
-AccessibleHandler::QueryHandlerInterface(IUnknown* aProxyUnknown, REFIID aIid,
+AccessibleHandler::QueryHandlerInterface(IUnknown* aProxyUnknown,
+                                         REFIID aIid,
                                          void** aOutInterface)
 {
   MOZ_ASSERT(aProxyUnknown);
@@ -256,7 +260,8 @@ AccessibleHandler::GetMarshalInterface(REFIID aMarshalAsIid,
     *aOutIid = aMarshalAsIid;
   }
 
-  return aProxy->QueryInterface(aMarshalAsIid,
+  return aProxy->QueryInterface(
+      aMarshalAsIid,
       reinterpret_cast<void**>(static_cast<IUnknown**>(aOutUnk)));
 }
 
@@ -275,7 +280,8 @@ AccessibleHandler::GetHandlerPayloadSize(REFIID aIid, DWORD* aOutPayloadSize)
     return S_OK;
   }
 
-  mSerializer = MakeUnique<mscom::StructToStream>(mCachedData, &IA2Payload_Encode);
+  mSerializer =
+      MakeUnique<mscom::StructToStream>(mCachedData, &IA2Payload_Encode);
   if (!mSerializer) {
     return E_FAIL;
   }
@@ -307,19 +313,13 @@ AccessibleHandler::QueryInterface(REFIID riid, void** ppv)
 }
 
 ULONG
-AccessibleHandler::AddRef()
-{
-  return Handler::AddRef();
-}
+AccessibleHandler::AddRef() { return Handler::AddRef(); }
 
 ULONG
-AccessibleHandler::Release()
-{
-  return Handler::Release();
-}
+AccessibleHandler::Release() { return Handler::Release(); }
 
 HRESULT
-AccessibleHandler::GetTypeInfoCount(UINT *pctinfo)
+AccessibleHandler::GetTypeInfoCount(UINT* pctinfo)
 {
   HRESULT hr = ResolveIDispatch();
   if (FAILED(hr)) {
@@ -330,7 +330,7 @@ AccessibleHandler::GetTypeInfoCount(UINT *pctinfo)
 }
 
 HRESULT
-AccessibleHandler::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
+AccessibleHandler::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo** ppTInfo)
 {
   HRESULT hr = ResolveIDispatch();
   if (FAILED(hr)) {
@@ -340,10 +340,9 @@ AccessibleHandler::GetTypeInfo(UINT iTInfo, LCID lcid, ITypeInfo **ppTInfo)
   return mDispatch->GetTypeInfo(iTInfo, lcid, ppTInfo);
 }
 
-
 HRESULT
-AccessibleHandler::GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames,
-                                 LCID lcid, DISPID *rgDispId)
+AccessibleHandler::GetIDsOfNames(
+    REFIID riid, LPOLESTR* rgszNames, UINT cNames, LCID lcid, DISPID* rgDispId)
 {
   HRESULT hr = ResolveIDispatch();
   if (FAILED(hr)) {
@@ -354,26 +353,36 @@ AccessibleHandler::GetIDsOfNames(REFIID riid, LPOLESTR *rgszNames, UINT cNames,
 }
 
 HRESULT
-AccessibleHandler::Invoke(DISPID dispIdMember, REFIID riid, LCID lcid,
-                          WORD wFlags, DISPPARAMS *pDispParams,
-                          VARIANT *pVarResult, EXCEPINFO *pExcepInfo,
-                          UINT *puArgErr)
+AccessibleHandler::Invoke(DISPID dispIdMember,
+                          REFIID riid,
+                          LCID lcid,
+                          WORD wFlags,
+                          DISPPARAMS* pDispParams,
+                          VARIANT* pVarResult,
+                          EXCEPINFO* pExcepInfo,
+                          UINT* puArgErr)
 {
   HRESULT hr = ResolveIDispatch();
   if (FAILED(hr)) {
     return hr;
   }
 
-  return mDispatch->Invoke(dispIdMember, riid, lcid, wFlags, pDispParams,
-                           pVarResult, pExcepInfo, puArgErr);
+  return mDispatch->Invoke(dispIdMember,
+                           riid,
+                           lcid,
+                           wFlags,
+                           pDispParams,
+                           pVarResult,
+                           pExcepInfo,
+                           puArgErr);
 }
 
-#define BEGIN_CACHE_ACCESS \
-  { \
-    HRESULT hr; \
+#define BEGIN_CACHE_ACCESS                      \
+  {                                             \
+    HRESULT hr;                                 \
     if (FAILED(hr = MaybeUpdateCachedData())) { \
-      return hr; \
-    } \
+      return hr;                                \
+    }                                           \
   }
 
 static BSTR
@@ -383,7 +392,7 @@ CopyBSTR(BSTR aSrc)
 }
 
 HRESULT
-AccessibleHandler::get_accParent(IDispatch **ppdispParent)
+AccessibleHandler::get_accParent(IDispatch** ppdispParent)
 {
   HRESULT hr = ResolveIA2();
   if (FAILED(hr)) {
@@ -393,7 +402,7 @@ AccessibleHandler::get_accParent(IDispatch **ppdispParent)
 }
 
 HRESULT
-AccessibleHandler::get_accChildCount(long *pcountChildren)
+AccessibleHandler::get_accChildCount(long* pcountChildren)
 {
   if (!pcountChildren) {
     return E_INVALIDARG;
@@ -406,7 +415,7 @@ AccessibleHandler::get_accChildCount(long *pcountChildren)
 }
 
 HRESULT
-AccessibleHandler::get_accChild(VARIANT varChild, IDispatch **ppdispChild)
+AccessibleHandler::get_accChild(VARIANT varChild, IDispatch** ppdispChild)
 {
   if (!ppdispChild) {
     return E_INVALIDARG;
@@ -425,7 +434,7 @@ AccessibleHandler::get_accChild(VARIANT varChild, IDispatch **ppdispChild)
 }
 
 HRESULT
-AccessibleHandler::get_accName(VARIANT varChild, BSTR *pszName)
+AccessibleHandler::get_accName(VARIANT varChild, BSTR* pszName)
 {
   if (!pszName) {
     return E_INVALIDARG;
@@ -438,7 +447,7 @@ AccessibleHandler::get_accName(VARIANT varChild, BSTR *pszName)
 }
 
 HRESULT
-AccessibleHandler::get_accValue(VARIANT varChild, BSTR *pszValue)
+AccessibleHandler::get_accValue(VARIANT varChild, BSTR* pszValue)
 {
   if (!pszValue) {
     return E_INVALIDARG;
@@ -451,7 +460,7 @@ AccessibleHandler::get_accValue(VARIANT varChild, BSTR *pszValue)
 }
 
 HRESULT
-AccessibleHandler::get_accDescription(VARIANT varChild, BSTR *pszDescription)
+AccessibleHandler::get_accDescription(VARIANT varChild, BSTR* pszDescription)
 {
   if (!pszDescription) {
     return E_INVALIDARG;
@@ -463,9 +472,8 @@ AccessibleHandler::get_accDescription(VARIANT varChild, BSTR *pszDescription)
   return mIA2PassThru->get_accDescription(varChild, pszDescription);
 }
 
-
 HRESULT
-AccessibleHandler::get_accRole(VARIANT varChild, VARIANT *pvarRole)
+AccessibleHandler::get_accRole(VARIANT varChild, VARIANT* pvarRole)
 {
   if (!pvarRole) {
     return E_INVALIDARG;
@@ -477,9 +485,8 @@ AccessibleHandler::get_accRole(VARIANT varChild, VARIANT *pvarRole)
   return mIA2PassThru->get_accRole(varChild, pvarRole);
 }
 
-
 HRESULT
-AccessibleHandler::get_accState(VARIANT varChild, VARIANT *pvarState)
+AccessibleHandler::get_accState(VARIANT varChild, VARIANT* pvarState)
 {
   if (!pvarState) {
     return E_INVALIDARG;
@@ -492,7 +499,7 @@ AccessibleHandler::get_accState(VARIANT varChild, VARIANT *pvarState)
 }
 
 HRESULT
-AccessibleHandler::get_accHelp(VARIANT varChild, BSTR *pszHelp)
+AccessibleHandler::get_accHelp(VARIANT varChild, BSTR* pszHelp)
 {
   // This matches what AccessibleWrap does
   if (!pszHelp) {
@@ -503,8 +510,9 @@ AccessibleHandler::get_accHelp(VARIANT varChild, BSTR *pszHelp)
 }
 
 HRESULT
-AccessibleHandler::get_accHelpTopic(BSTR *pszHelpFile, VARIANT varChild,
-                                    long *pidTopic)
+AccessibleHandler::get_accHelpTopic(BSTR* pszHelpFile,
+                                    VARIANT varChild,
+                                    long* pidTopic)
 {
   // This matches what AccessibleWrap does
   if (!pszHelpFile || !pidTopic) {
@@ -517,7 +525,7 @@ AccessibleHandler::get_accHelpTopic(BSTR *pszHelpFile, VARIANT varChild,
 
 HRESULT
 AccessibleHandler::get_accKeyboardShortcut(VARIANT varChild,
-                                           BSTR *pszKeyboardShortcut)
+                                           BSTR* pszKeyboardShortcut)
 {
   if (!pszKeyboardShortcut) {
     return E_INVALIDARG;
@@ -530,7 +538,7 @@ AccessibleHandler::get_accKeyboardShortcut(VARIANT varChild,
 }
 
 HRESULT
-AccessibleHandler::get_accFocus(VARIANT *pvarChild)
+AccessibleHandler::get_accFocus(VARIANT* pvarChild)
 {
   HRESULT hr = ResolveIA2();
   if (FAILED(hr)) {
@@ -540,7 +548,7 @@ AccessibleHandler::get_accFocus(VARIANT *pvarChild)
 }
 
 HRESULT
-AccessibleHandler::get_accSelection(VARIANT *pvarChildren)
+AccessibleHandler::get_accSelection(VARIANT* pvarChildren)
 {
   HRESULT hr = ResolveIA2();
   if (FAILED(hr)) {
@@ -551,7 +559,7 @@ AccessibleHandler::get_accSelection(VARIANT *pvarChildren)
 
 HRESULT
 AccessibleHandler::get_accDefaultAction(VARIANT varChild,
-                                        BSTR *pszDefaultAction)
+                                        BSTR* pszDefaultAction)
 {
   if (!pszDefaultAction) {
     return E_INVALIDARG;
@@ -574,20 +582,24 @@ AccessibleHandler::accSelect(long flagsSelect, VARIANT varChild)
 }
 
 HRESULT
-AccessibleHandler::accLocation(long *pxLeft, long *pyTop, long *pcxWidth,
-                               long *pcyHeight, VARIANT varChild)
+AccessibleHandler::accLocation(long* pxLeft,
+                               long* pyTop,
+                               long* pcxWidth,
+                               long* pcyHeight,
+                               VARIANT varChild)
 {
   HRESULT hr = ResolveIA2();
   if (FAILED(hr)) {
     return hr;
   }
-  return mIA2PassThru->accLocation(pxLeft, pyTop, pcxWidth, pcyHeight,
-                                   varChild);
+  return mIA2PassThru->accLocation(
+      pxLeft, pyTop, pcxWidth, pcyHeight, varChild);
 }
 
 HRESULT
-AccessibleHandler::accNavigate(long navDir, VARIANT varStart,
-                               VARIANT *pvarEndUpAt)
+AccessibleHandler::accNavigate(long navDir,
+                               VARIANT varStart,
+                               VARIANT* pvarEndUpAt)
 {
   HRESULT hr = ResolveIA2();
   if (FAILED(hr)) {
@@ -597,7 +609,7 @@ AccessibleHandler::accNavigate(long navDir, VARIANT varStart,
 }
 
 HRESULT
-AccessibleHandler::accHitTest(long xLeft, long yTop, VARIANT *pvarChild)
+AccessibleHandler::accHitTest(long xLeft, long yTop, VARIANT* pvarChild)
 {
   HRESULT hr = ResolveIA2();
   if (FAILED(hr)) {
@@ -687,7 +699,8 @@ AccessibleHandler::scrollTo(IA2ScrollType scrollType)
 }
 
 HRESULT
-AccessibleHandler::scrollToPoint(IA2CoordinateType coordinateType, long x,
+AccessibleHandler::scrollToPoint(IA2CoordinateType coordinateType,
+                                 long x,
                                  long y)
 {
   HRESULT hr = ResolveIA2();
@@ -698,15 +711,16 @@ AccessibleHandler::scrollToPoint(IA2CoordinateType coordinateType, long x,
 }
 
 HRESULT
-AccessibleHandler::get_groupPosition(long* groupLevel, long* similarItemsInGroup,
+AccessibleHandler::get_groupPosition(long* groupLevel,
+                                     long* similarItemsInGroup,
                                      long* positionInGroup)
 {
   HRESULT hr = ResolveIA2();
   if (FAILED(hr)) {
     return hr;
   }
-  return mIA2PassThru->get_groupPosition(groupLevel, similarItemsInGroup,
-                                         positionInGroup);
+  return mIA2PassThru->get_groupPosition(
+      groupLevel, similarItemsInGroup, positionInGroup);
 }
 
 HRESULT
@@ -756,7 +770,8 @@ AccessibleHandler::get_nExtendedStates(long* nExtendedStates)
 }
 
 HRESULT
-AccessibleHandler::get_extendedStates(long maxExtendedStates, BSTR** extendedStates,
+AccessibleHandler::get_extendedStates(long maxExtendedStates,
+                                      BSTR** extendedStates,
                                       long* nExtendedStates)
 {
   // This matches ia2Accessible
@@ -873,7 +888,8 @@ AccessibleHandler::get_accessibleWithCaret(IUnknown** accessible,
 }
 
 HRESULT
-AccessibleHandler::get_relationTargetsOfType(BSTR type, long maxTargets,
+AccessibleHandler::get_relationTargetsOfType(BSTR type,
+                                             long maxTargets,
                                              IUnknown*** targets,
                                              long* nTargets)
 {
@@ -881,8 +897,8 @@ AccessibleHandler::get_relationTargetsOfType(BSTR type, long maxTargets,
   if (FAILED(hr)) {
     return hr;
   }
-  return mIA2PassThru->get_relationTargetsOfType(type, maxTargets, targets,
-                                                 nTargets);
+  return mIA2PassThru->get_relationTargetsOfType(
+      type, maxTargets, targets, nTargets);
 }
 
 HRESULT
@@ -896,20 +912,35 @@ AccessibleHandler::get_selectionRanges(IA2Range** ranges, long* nRanges)
 }
 
 static const GUID kUnsupportedServices[] = {
-  // Unknown, queried by Windows
-  {0x33f139ee, 0xe509, 0x47f7, {0xbf, 0x39, 0x83, 0x76, 0x44, 0xf7, 0x45, 0x76}},
-  // Unknown, queried by Windows
-  {0xFDA075CF, 0x7C8B, 0x498C, { 0xB5, 0x14, 0xA9, 0xCB, 0x52, 0x1B, 0xBF, 0xB4 }},
-  // Unknown, queried by Windows
-  {0x8EDAA462, 0x21F4, 0x4C87, { 0xA0, 0x12, 0xB3, 0xCD, 0xA3, 0xAB, 0x01, 0xFC }},
-  // Unknown, queried by Windows
-  {0xacd46652, 0x829d, 0x41cb, { 0xa5, 0xfc, 0x17, 0xac, 0xf4, 0x36, 0x61, 0xac }},
-  // Unknown, queried by Windows
-  {0xb96fdb85, 0x7204, 0x4724, { 0x84, 0x2b, 0xc7, 0x05, 0x9d, 0xed, 0xb9, 0xd0 }}
-};
+    // Unknown, queried by Windows
+    {0x33f139ee,
+     0xe509,
+     0x47f7,
+     {0xbf, 0x39, 0x83, 0x76, 0x44, 0xf7, 0x45, 0x76}},
+    // Unknown, queried by Windows
+    {0xFDA075CF,
+     0x7C8B,
+     0x498C,
+     {0xB5, 0x14, 0xA9, 0xCB, 0x52, 0x1B, 0xBF, 0xB4}},
+    // Unknown, queried by Windows
+    {0x8EDAA462,
+     0x21F4,
+     0x4C87,
+     {0xA0, 0x12, 0xB3, 0xCD, 0xA3, 0xAB, 0x01, 0xFC}},
+    // Unknown, queried by Windows
+    {0xacd46652,
+     0x829d,
+     0x41cb,
+     {0xa5, 0xfc, 0x17, 0xac, 0xf4, 0x36, 0x61, 0xac}},
+    // Unknown, queried by Windows
+    {0xb96fdb85,
+     0x7204,
+     0x4724,
+     {0x84, 0x2b, 0xc7, 0x05, 0x9d, 0xed, 0xb9, 0xd0}}};
 
 HRESULT
-AccessibleHandler::QueryService(REFGUID aServiceId, REFIID aIid,
+AccessibleHandler::QueryService(REFGUID aServiceId,
+                                REFIID aIid,
                                 void** aOutInterface)
 {
   static_assert(&NEWEST_IA2_IID == &IID_IAccessible2_3,
@@ -935,8 +966,8 @@ AccessibleHandler::QueryService(REFGUID aServiceId, REFIID aIid,
       return E_UNEXPECTED;
     }
 
-    HRESULT hr = proxy->QueryInterface(IID_IServiceProvider,
-                                       reinterpret_cast<void**>(&mServProvPassThru));
+    HRESULT hr = proxy->QueryInterface(
+        IID_IServiceProvider, reinterpret_cast<void**>(&mServProvPassThru));
     if (FAILED(hr)) {
       return hr;
     }
@@ -960,23 +991,23 @@ AccessibleHandler::GetClassInfo(ITypeInfo** aOutTypeInfo)
   return ctl->GetHandlerTypeInfo(aOutTypeInfo);
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-extern "C" HRESULT __stdcall
-ProxyDllCanUnloadNow();
+extern "C" HRESULT __stdcall ProxyDllCanUnloadNow();
 
-extern "C" HRESULT __stdcall
-DllCanUnloadNow()
+extern "C" HRESULT __stdcall DllCanUnloadNow()
 {
   return mozilla::mscom::Module::CanUnload() && ProxyDllCanUnloadNow();
 }
 
-extern "C" HRESULT __stdcall
-ProxyDllGetClassObject(REFCLSID aClsid, REFIID aIid, LPVOID* aOutInterface);
+extern "C" HRESULT __stdcall ProxyDllGetClassObject(REFCLSID aClsid,
+                                                    REFIID aIid,
+                                                    LPVOID* aOutInterface);
 
-extern "C" HRESULT __stdcall
-DllGetClassObject(REFCLSID aClsid, REFIID aIid, LPVOID* aOutInterface)
+extern "C" HRESULT __stdcall DllGetClassObject(REFCLSID aClsid,
+                                               REFIID aIid,
+                                               LPVOID* aOutInterface)
 {
   if (aClsid == CLSID_AccessibleHandler) {
     return mozilla::a11y::sHandlerFactory.QueryInterface(aIid, aOutInterface);
@@ -997,11 +1028,9 @@ DllMain(HINSTANCE aInstDll, DWORD aReason, LPVOID aReserved)
   return ProxyDllMain(aInstDll, aReason, aReserved);
 }
 
-extern "C" HRESULT __stdcall
-ProxyDllRegisterServer();
+extern "C" HRESULT __stdcall ProxyDllRegisterServer();
 
-extern "C" HRESULT __stdcall
-DllRegisterServer()
+extern "C" HRESULT __stdcall DllRegisterServer()
 {
   HRESULT hr = mozilla::mscom::Handler::Register(CLSID_AccessibleHandler);
   if (FAILED(hr)) {
@@ -1011,11 +1040,9 @@ DllRegisterServer()
   return ProxyDllRegisterServer();
 }
 
-extern "C" HRESULT __stdcall
-ProxyDllUnregisterServer();
+extern "C" HRESULT __stdcall ProxyDllUnregisterServer();
 
-extern "C" HRESULT __stdcall
-DllUnregisterServer()
+extern "C" HRESULT __stdcall DllUnregisterServer()
 {
   HRESULT hr = mozilla::mscom::Handler::Unregister(CLSID_AccessibleHandler);
   if (FAILED(hr)) {

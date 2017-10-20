@@ -35,24 +35,23 @@ NS_IMPL_ISUPPORTS(DirectoryProvider,
                   nsIDirectoryServiceProvider2)
 
 NS_IMETHODIMP
-DirectoryProvider::GetFile(const char *aKey, bool *aPersist, nsIFile* *aResult)
+DirectoryProvider::GetFile(const char* aKey, bool* aPersist, nsIFile** aResult)
 {
   return NS_ERROR_FAILURE;
 }
 
 static void
-AppendFileKey(const char *key, nsIProperties* aDirSvc,
-              nsCOMArray<nsIFile> &array)
+AppendFileKey(const char* key,
+              nsIProperties* aDirSvc,
+              nsCOMArray<nsIFile>& array)
 {
   nsCOMPtr<nsIFile> file;
   nsresult rv = aDirSvc->Get(key, NS_GET_IID(nsIFile), getter_AddRefs(file));
-  if (NS_FAILED(rv))
-    return;
+  if (NS_FAILED(rv)) return;
 
   bool exists;
   rv = file->Exists(&exists);
-  if (NS_FAILED(rv) || !exists)
-    return;
+  if (NS_FAILED(rv) || !exists) return;
 
   array.AppendObject(file);
 }
@@ -75,37 +74,32 @@ AppendFileKey(const char *key, nsIProperties* aDirSvc,
 // which specifies a default locale to use.
 
 static void
-AppendDistroSearchDirs(nsIProperties* aDirSvc, nsCOMArray<nsIFile> &array)
+AppendDistroSearchDirs(nsIProperties* aDirSvc, nsCOMArray<nsIFile>& array)
 {
   nsCOMPtr<nsIFile> searchPlugins;
   nsresult rv = aDirSvc->Get(XRE_APP_DISTRIBUTION_DIR,
                              NS_GET_IID(nsIFile),
                              getter_AddRefs(searchPlugins));
-  if (NS_FAILED(rv))
-    return;
+  if (NS_FAILED(rv)) return;
   searchPlugins->AppendNative(NS_LITERAL_CSTRING("searchplugins"));
 
   bool exists;
   rv = searchPlugins->Exists(&exists);
-  if (NS_FAILED(rv) || !exists)
-    return;
+  if (NS_FAILED(rv) || !exists) return;
 
   nsCOMPtr<nsIFile> commonPlugins;
   rv = searchPlugins->Clone(getter_AddRefs(commonPlugins));
   if (NS_SUCCEEDED(rv)) {
     commonPlugins->AppendNative(NS_LITERAL_CSTRING("common"));
     rv = commonPlugins->Exists(&exists);
-    if (NS_SUCCEEDED(rv) && exists)
-        array.AppendObject(commonPlugins);
+    if (NS_SUCCEEDED(rv) && exists) array.AppendObject(commonPlugins);
   }
 
   nsCOMPtr<nsIPrefBranch> prefs(do_GetService(NS_PREFSERVICE_CONTRACTID));
   if (prefs) {
-
     nsCOMPtr<nsIFile> localePlugins;
     rv = searchPlugins->Clone(getter_AddRefs(localePlugins));
-    if (NS_FAILED(rv))
-      return;
+    if (NS_FAILED(rv)) return;
 
     localePlugins->AppendNative(NS_LITERAL_CSTRING("locale"));
 
@@ -113,16 +107,14 @@ AppendDistroSearchDirs(nsIProperties* aDirSvc, nsCOMArray<nsIFile> &array)
     rv = prefs->GetCharPref("distribution.searchplugins.defaultLocale",
                             getter_Copies(defLocale));
     if (NS_SUCCEEDED(rv)) {
-
       nsCOMPtr<nsIFile> defLocalePlugins;
       rv = localePlugins->Clone(getter_AddRefs(defLocalePlugins));
       if (NS_SUCCEEDED(rv)) {
-
         defLocalePlugins->AppendNative(defLocale);
         rv = defLocalePlugins->Exists(&exists);
         if (NS_SUCCEEDED(rv) && exists) {
           array.AppendObject(defLocalePlugins);
-          return; // all done
+          return;  // all done
         }
       }
     }
@@ -134,19 +126,18 @@ AppendDistroSearchDirs(nsIProperties* aDirSvc, nsCOMArray<nsIFile> &array)
     nsCOMPtr<nsIFile> curLocalePlugins;
     rv = localePlugins->Clone(getter_AddRefs(curLocalePlugins));
     if (NS_SUCCEEDED(rv)) {
-
       curLocalePlugins->AppendNative(locale);
       rv = curLocalePlugins->Exists(&exists);
       if (NS_SUCCEEDED(rv) && exists) {
         array.AppendObject(curLocalePlugins);
-        return; // all done
+        return;  // all done
       }
     }
   }
 }
 
 NS_IMETHODIMP
-DirectoryProvider::GetFiles(const char *aKey, nsISimpleEnumerator* *aResult)
+DirectoryProvider::GetFiles(const char* aKey, nsISimpleEnumerator** aResult)
 {
   /**
    * We want to preserve the following order, since the search service loads
@@ -166,10 +157,9 @@ DirectoryProvider::GetFiles(const char *aKey, nsISimpleEnumerator* *aResult)
   nsresult rv;
 
   if (!strcmp(aKey, NS_APP_DISTRIBUTION_SEARCH_DIR_LIST)) {
-    nsCOMPtr<nsIProperties> dirSvc
-      (do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID));
-    if (!dirSvc)
-      return NS_ERROR_FAILURE;
+    nsCOMPtr<nsIProperties> dirSvc(
+        do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID));
+    if (!dirSvc) return NS_ERROR_FAILURE;
 
     nsCOMArray<nsIFile> distroFiles;
     AppendDistroSearchDirs(dirSvc, distroFiles);
@@ -178,10 +168,9 @@ DirectoryProvider::GetFiles(const char *aKey, nsISimpleEnumerator* *aResult)
   }
 
   if (!strcmp(aKey, NS_APP_SEARCH_DIR_LIST)) {
-    nsCOMPtr<nsIProperties> dirSvc
-      (do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID));
-    if (!dirSvc)
-      return NS_ERROR_FAILURE;
+    nsCOMPtr<nsIProperties> dirSvc(
+        do_GetService(NS_DIRECTORY_SERVICE_CONTRACTID));
+    if (!dirSvc) return NS_ERROR_FAILURE;
 
     nsCOMArray<nsIFile> baseFiles;
 
@@ -189,21 +178,19 @@ DirectoryProvider::GetFiles(const char *aKey, nsISimpleEnumerator* *aResult)
 
     nsCOMPtr<nsISimpleEnumerator> baseEnum;
     rv = NS_NewArrayEnumerator(getter_AddRefs(baseEnum), baseFiles);
-    if (NS_FAILED(rv))
-      return rv;
+    if (NS_FAILED(rv)) return rv;
 
     nsCOMPtr<nsISimpleEnumerator> list;
     rv = dirSvc->Get(XRE_EXTENSIONS_DIR_LIST,
-                     NS_GET_IID(nsISimpleEnumerator), getter_AddRefs(list));
-    if (NS_FAILED(rv))
-      return rv;
+                     NS_GET_IID(nsISimpleEnumerator),
+                     getter_AddRefs(list));
+    if (NS_FAILED(rv)) return rv;
 
-    static char const *const kAppendSPlugins[] = {"searchplugins", nullptr};
+    static char const* const kAppendSPlugins[] = {"searchplugins", nullptr};
 
     nsCOMPtr<nsISimpleEnumerator> extEnum =
-      new AppendingEnumerator(list, kAppendSPlugins);
-    if (!extEnum)
-      return NS_ERROR_OUT_OF_MEMORY;
+        new AppendingEnumerator(list, kAppendSPlugins);
+    if (!extEnum) return NS_ERROR_OUT_OF_MEMORY;
 
     return NS_NewUnionEnumerator(aResult, extEnum, baseEnum);
   }
@@ -214,17 +201,16 @@ DirectoryProvider::GetFiles(const char *aKey, nsISimpleEnumerator* *aResult)
 NS_IMPL_ISUPPORTS(DirectoryProvider::AppendingEnumerator, nsISimpleEnumerator)
 
 NS_IMETHODIMP
-DirectoryProvider::AppendingEnumerator::HasMoreElements(bool *aResult)
+DirectoryProvider::AppendingEnumerator::HasMoreElements(bool* aResult)
 {
   *aResult = mNext ? true : false;
   return NS_OK;
 }
 
 NS_IMETHODIMP
-DirectoryProvider::AppendingEnumerator::GetNext(nsISupports* *aResult)
+DirectoryProvider::AppendingEnumerator::GetNext(nsISupports** aResult)
 {
-  if (aResult)
-    NS_ADDREF(*aResult = mNext);
+  if (aResult) NS_ADDREF(*aResult = mNext);
 
   mNext = nullptr;
 
@@ -238,14 +224,12 @@ DirectoryProvider::AppendingEnumerator::GetNext(nsISupports* *aResult)
     mBase->GetNext(getter_AddRefs(nextbasesupp));
 
     nsCOMPtr<nsIFile> nextbase(do_QueryInterface(nextbasesupp));
-    if (!nextbase)
-      continue;
+    if (!nextbase) continue;
 
     nextbase->Clone(getter_AddRefs(mNext));
-    if (!mNext)
-      continue;
+    if (!mNext) continue;
 
-    char const *const * i = mAppendList;
+    char const* const* i = mAppendList;
     while (*i) {
       mNext->AppendNative(nsDependentCString(*i));
       ++i;
@@ -253,8 +237,7 @@ DirectoryProvider::AppendingEnumerator::GetNext(nsISupports* *aResult)
 
     bool exists;
     rv = mNext->Exists(&exists);
-    if (NS_SUCCEEDED(rv) && exists)
-      break;
+    if (NS_SUCCEEDED(rv) && exists) break;
 
     mNext = nullptr;
   }
@@ -262,15 +245,13 @@ DirectoryProvider::AppendingEnumerator::GetNext(nsISupports* *aResult)
   return NS_OK;
 }
 
-DirectoryProvider::AppendingEnumerator::AppendingEnumerator
-    (nsISimpleEnumerator* aBase,
-     char const *const *aAppendList) :
-  mBase(aBase),
-  mAppendList(aAppendList)
+DirectoryProvider::AppendingEnumerator::AppendingEnumerator(
+    nsISimpleEnumerator* aBase, char const* const* aAppendList)
+    : mBase(aBase), mAppendList(aAppendList)
 {
   // Initialize mNext to begin.
   GetNext(nullptr);
 }
 
-} // namespace browser
-} // namespace mozilla
+}  // namespace browser
+}  // namespace mozilla

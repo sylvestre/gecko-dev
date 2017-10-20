@@ -19,7 +19,7 @@ using namespace mozilla::a11y;
 extern "C" {
 
 static gboolean
-addSelectionCB(AtkSelection *aSelection, gint i)
+addSelectionCB(AtkSelection* aSelection, gint i)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aSelection));
   if (accWrap && accWrap->IsSelect()) {
@@ -34,7 +34,7 @@ addSelectionCB(AtkSelection *aSelection, gint i)
 }
 
 static gboolean
-clearSelectionCB(AtkSelection *aSelection)
+clearSelectionCB(AtkSelection* aSelection)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aSelection));
   if (accWrap && accWrap->IsSelect()) {
@@ -49,7 +49,7 @@ clearSelectionCB(AtkSelection *aSelection)
 }
 
 static AtkObject*
-refSelectionCB(AtkSelection *aSelection, gint i)
+refSelectionCB(AtkSelection* aSelection, gint i)
 {
   AtkObject* atkObj = nullptr;
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aSelection));
@@ -75,7 +75,7 @@ refSelectionCB(AtkSelection *aSelection, gint i)
 }
 
 static gint
-getSelectionCountCB(AtkSelection *aSelection)
+getSelectionCountCB(AtkSelection* aSelection)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aSelection));
   if (accWrap && accWrap->IsSelect()) {
@@ -90,7 +90,7 @@ getSelectionCountCB(AtkSelection *aSelection)
 }
 
 static gboolean
-isChildSelectedCB(AtkSelection *aSelection, gint i)
+isChildSelectedCB(AtkSelection* aSelection, gint i)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aSelection));
   if (accWrap && accWrap->IsSelect()) {
@@ -105,7 +105,7 @@ isChildSelectedCB(AtkSelection *aSelection, gint i)
 }
 
 static gboolean
-removeSelectionCB(AtkSelection *aSelection, gint i)
+removeSelectionCB(AtkSelection* aSelection, gint i)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aSelection));
   if (accWrap && accWrap->IsSelect()) {
@@ -120,7 +120,7 @@ removeSelectionCB(AtkSelection *aSelection, gint i)
 }
 
 static gboolean
-selectAllSelectionCB(AtkSelection *aSelection)
+selectAllSelectionCB(AtkSelection* aSelection)
 {
   AccessibleWrap* accWrap = GetAccessibleWrap(ATK_OBJECT(aSelection));
   if (accWrap && accWrap->IsSelect()) {
@@ -139,8 +139,7 @@ void
 selectionInterfaceInitCB(AtkSelectionIface* aIface)
 {
   NS_ASSERTION(aIface, "Invalid aIface");
-  if (MOZ_UNLIKELY(!aIface))
-    return;
+  if (MOZ_UNLIKELY(!aIface)) return;
 
   aIface->add_selection = addSelectionCB;
   aIface->clear_selection = clearSelectionCB;

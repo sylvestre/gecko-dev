@@ -22,7 +22,7 @@ namespace a11y {
 class HTMLTableCellAccessible : public HyperTextAccessibleWrap,
                                 public TableCellAccessible
 {
-public:
+ public:
   HTMLTableCellAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // nsISupports
@@ -46,7 +46,7 @@ public:
   virtual void RowHeaderCells(nsTArray<Accessible*>* aCells) override;
   virtual bool Selected() override;
 
-protected:
+ protected:
   virtual ~HTMLTableCellAccessible() {}
 
   /**
@@ -65,28 +65,26 @@ protected:
   nsresult GetCellIndexes(int32_t& aRowIdx, int32_t& aColIdx) const;
 };
 
-
 /**
  * HTML table row/column header accessible (html:th or html:td@scope).
  */
 class HTMLTableHeaderCellAccessible : public HTMLTableCellAccessible
 {
-public:
+ public:
   HTMLTableHeaderCellAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
   virtual a11y::role NativeRole() override;
 };
 
-
 /**
  * HTML table row accessible (html:tr).
  */
 class HTMLTableRowAccessible : public AccessibleWrap
 {
-public:
-  HTMLTableRowAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    AccessibleWrap(aContent, aDoc)
+ public:
+  HTMLTableRowAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : AccessibleWrap(aContent, aDoc)
   {
     mType = eHTMLTableRowType;
     mGenericTypes |= eTableRow;
@@ -98,10 +96,9 @@ public:
   virtual a11y::role NativeRole() override;
   virtual mozilla::a11y::GroupPos GroupPosition() override;
 
-protected:
-  virtual ~HTMLTableRowAccessible() { }
+ protected:
+  virtual ~HTMLTableRowAccessible() {}
 };
-
 
 /**
  * HTML table accessible (html:table).
@@ -112,12 +109,11 @@ protected:
 // data vs. layout heuristic
 // #define SHOW_LAYOUT_HEURISTIC
 
-class HTMLTableAccessible : public AccessibleWrap,
-                            public TableAccessible
+class HTMLTableAccessible : public AccessibleWrap, public TableAccessible
 {
-public:
-  HTMLTableAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    AccessibleWrap(aContent, aDoc)
+ public:
+  HTMLTableAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : AccessibleWrap(aContent, aDoc)
   {
     mType = eHTMLTableType;
     mGenericTypes |= eTable;
@@ -130,11 +126,13 @@ public:
   virtual void Summary(nsString& aSummary) override;
   virtual uint32_t ColCount() override;
   virtual uint32_t RowCount() override;
-  virtual Accessible* CellAt(uint32_t aRowIndex, uint32_t aColumnIndex) override;
+  virtual Accessible* CellAt(uint32_t aRowIndex,
+                             uint32_t aColumnIndex) override;
   virtual int32_t CellIndexAt(uint32_t aRowIdx, uint32_t aColIdx) override;
   virtual int32_t ColIndexAt(uint32_t aCellIdx) override;
   virtual int32_t RowIndexAt(uint32_t aCellIdx) override;
-  virtual void RowAndColIndicesAt(uint32_t aCellIdx, int32_t* aRowIdx,
+  virtual void RowAndColIndicesAt(uint32_t aCellIdx,
+                                  int32_t* aRowIdx,
                                   int32_t* aColIdx) override;
   virtual uint32_t ColExtentAt(uint32_t aRowIdx, uint32_t aColIdx) override;
   virtual uint32_t RowExtentAt(uint32_t aRowIdx, uint32_t aColIdx) override;
@@ -165,7 +163,7 @@ public:
 
   virtual bool InsertChildAt(uint32_t aIndex, Accessible* aChild) override;
 
-protected:
+ protected:
   virtual ~HTMLTableAccessible() {}
 
   // Accessible
@@ -214,19 +212,22 @@ protected:
  */
 class HTMLCaptionAccessible : public HyperTextAccessibleWrap
 {
-public:
-  HTMLCaptionAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    HyperTextAccessibleWrap(aContent, aDoc) { mType = eHTMLCaptionType; }
+ public:
+  HTMLCaptionAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : HyperTextAccessibleWrap(aContent, aDoc)
+  {
+    mType = eHTMLCaptionType;
+  }
 
   // Accessible
   virtual a11y::role NativeRole() override;
   virtual Relation RelationByType(RelationType aRelationType) override;
 
-protected:
-  virtual ~HTMLCaptionAccessible() { }
+ protected:
+  virtual ~HTMLCaptionAccessible() {}
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

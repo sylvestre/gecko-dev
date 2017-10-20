@@ -17,7 +17,7 @@ namespace a11y {
  */
 class HTMLImageMapAccessible final : public ImageAccessibleWrap
 {
-public:
+ public:
   HTMLImageMapAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // nsISupports and cycle collector
@@ -41,8 +41,8 @@ public:
    */
   Accessible* GetChildAccessibleFor(const nsINode* aNode) const;
 
-protected:
-  virtual ~HTMLImageMapAccessible() { }
+ protected:
+  virtual ~HTMLImageMapAccessible() {}
 };
 
 /**
@@ -50,13 +50,13 @@ protected:
  */
 class HTMLAreaAccessible final : public HTMLLinkAccessible
 {
-public:
-
+ public:
   HTMLAreaAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
   virtual void Description(nsString& aDescription) override;
-  virtual Accessible* ChildAtPoint(int32_t aX, int32_t aY,
+  virtual Accessible* ChildAtPoint(int32_t aX,
+                                   int32_t aY,
                                    EWhichChildAtPoint aWhichChild) override;
   virtual nsRect RelativeBounds(nsIFrame** aBoundingFrame) const override;
 
@@ -65,13 +65,14 @@ public:
   virtual uint32_t EndOffset() override;
 
   virtual bool IsAcceptableChild(nsIContent* aEl) const override
-    { return false; }
+  {
+    return false;
+  }
 
-protected:
+ protected:
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Accessible downcasting method
@@ -82,7 +83,7 @@ Accessible::AsImageMap()
   return IsImageMap() ? static_cast<HTMLImageMapAccessible*>(this) : nullptr;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

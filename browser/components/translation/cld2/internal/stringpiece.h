@@ -24,10 +24,10 @@
 #include <string.h>
 #include <string>
 
-
 typedef int stringpiece_ssize_type;
 
-class StringPiece {
+class StringPiece
+{
  private:
   const char* ptr_;
   stringpiece_ssize_type length_;
@@ -39,29 +39,31 @@ class StringPiece {
   StringPiece() : ptr_(NULL), length_(0) {}
 
   StringPiece(const char* str)  // NOLINT(runtime/explicit)
-      : ptr_(str), length_(0) {
+      : ptr_(str), length_(0)
+  {
     if (str != NULL) {
       length_ = strlen(str);
     }
   }
 
   StringPiece(const std::string& str)  // NOLINT(runtime/explicit)
-      : ptr_(str.data()), length_(0) {
+      : ptr_(str.data()), length_(0)
+  {
     length_ = str.size();
   }
 
   StringPiece(const char* offset, stringpiece_ssize_type len)
-      : ptr_(offset), length_(len) {
+      : ptr_(offset), length_(len)
+  {
   }
 
-  void remove_prefix(stringpiece_ssize_type n) {
+  void remove_prefix(stringpiece_ssize_type n)
+  {
     ptr_ += n;
     length_ -= n;
   }
 
-  void remove_suffix(stringpiece_ssize_type n) {
-    length_ -= n;
-  }
+  void remove_suffix(stringpiece_ssize_type n) { length_ -= n; }
 
   // data() may return a pointer to a buffer with embedded NULs, and the
   // returned buffer may or may not be null terminated.  Therefore it is

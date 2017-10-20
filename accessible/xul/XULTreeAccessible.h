@@ -30,8 +30,9 @@ const uint32_t kDefaultTreeCacheLength = 128;
 
 class XULTreeAccessible : public AccessibleWrap
 {
-public:
-  XULTreeAccessible(nsIContent* aContent, DocAccessible* aDoc,
+ public:
+  XULTreeAccessible(nsIContent* aContent,
+                    DocAccessible* aDoc,
                     nsTreeBodyFrame* aTreeframe);
 
   // nsISupports and cycle collection
@@ -43,7 +44,8 @@ public:
   virtual void Value(nsString& aValue) override;
   virtual a11y::role NativeRole() override;
   virtual uint64_t NativeState() override;
-  virtual Accessible* ChildAtPoint(int32_t aX, int32_t aY,
+  virtual Accessible* ChildAtPoint(int32_t aX,
+                                   int32_t aY,
                                    EWhichChildAtPoint aWhichChild) override;
 
   virtual Accessible* GetChildAt(uint32_t aIndex) const override;
@@ -98,22 +100,24 @@ public:
    * @param aEndCol    [in] column index invalidation ends, -1 mens last column
    *                    index
    */
-  void TreeViewInvalidated(int32_t aStartRow, int32_t aEndRow,
-                           int32_t aStartCol, int32_t aEndCol);
+  void TreeViewInvalidated(int32_t aStartRow,
+                           int32_t aEndRow,
+                           int32_t aStartCol,
+                           int32_t aEndCol);
 
   /**
    * Invalidates children created for previous tree view.
    */
   void TreeViewChanged(nsITreeView* aView);
 
-protected:
+ protected:
   virtual ~XULTreeAccessible();
 
   /**
    * Creates tree item accessible for the given row index.
    */
-  virtual already_AddRefed<Accessible>
-    CreateTreeItemAccessible(int32_t aRow) const;
+  virtual already_AddRefed<Accessible> CreateTreeItemAccessible(
+      int32_t aRow) const;
 
   nsCOMPtr<nsITreeBoxObject> mTree;
   nsITreeView* mTreeView;
@@ -124,20 +128,23 @@ protected:
  * Base class for tree item accessibles.
  */
 
-#define XULTREEITEMBASEACCESSIBLE_IMPL_CID            \
-{  /* 1ab79ae7-766a-443c-940b-b1e6b0831dfc */         \
-  0x1ab79ae7,                                         \
-  0x766a,                                             \
-  0x443c,                                             \
-  { 0x94, 0x0b, 0xb1, 0xe6, 0xb0, 0x83, 0x1d, 0xfc }  \
-}
+#define XULTREEITEMBASEACCESSIBLE_IMPL_CID           \
+  { /* 1ab79ae7-766a-443c-940b-b1e6b0831dfc */       \
+    0x1ab79ae7, 0x766a, 0x443c,                      \
+    {                                                \
+      0x94, 0x0b, 0xb1, 0xe6, 0xb0, 0x83, 0x1d, 0xfc \
+    }                                                \
+  }
 
 class XULTreeItemAccessibleBase : public AccessibleWrap
 {
-public:
-  XULTreeItemAccessibleBase(nsIContent* aContent, DocAccessible* aDoc,
-                            Accessible* aParent, nsITreeBoxObject* aTree,
-                            nsITreeView* aTreeView, int32_t aRow);
+ public:
+  XULTreeItemAccessibleBase(nsIContent* aContent,
+                            DocAccessible* aDoc,
+                            Accessible* aParent,
+                            nsITreeBoxObject* aTree,
+                            nsITreeView* aTreeView,
+                            int32_t aRow);
 
   // nsISupports and cycle collection
   NS_DECL_ISUPPORTS_INHERITED
@@ -176,23 +183,31 @@ public:
    * Return cell accessible for the given column. If XUL tree accessible is not
    * accessible table then return null.
    */
-  virtual XULTreeGridCellAccessible* GetCellAccessible(nsITreeColumn* aColumn) const
-    { return nullptr; }
+  virtual XULTreeGridCellAccessible* GetCellAccessible(
+      nsITreeColumn* aColumn) const
+  {
+    return nullptr;
+  }
 
   /**
    * Proccess row invalidation. Used to fires name change events.
    */
   virtual void RowInvalidated(int32_t aStartColIdx, int32_t aEndColIdx) = 0;
 
-protected:
+ protected:
   virtual ~XULTreeItemAccessibleBase();
 
-  enum { eAction_Click = 0, eAction_Expand = 1 };
+  enum
+  {
+    eAction_Click = 0,
+    eAction_Expand = 1
+  };
 
   // Accessible
-  virtual void DispatchClickEvent(nsIContent *aContent, uint32_t aActionIndex) override;
-  virtual Accessible* GetSiblingAtOffset(int32_t aOffset,
-                                         nsresult *aError = nullptr) const override;
+  virtual void DispatchClickEvent(nsIContent* aContent,
+                                  uint32_t aActionIndex) override;
+  virtual Accessible* GetSiblingAtOffset(
+      int32_t aOffset, nsresult* aError = nullptr) const override;
 
   // XULTreeItemAccessibleBase
 
@@ -214,16 +229,18 @@ protected:
 NS_DEFINE_STATIC_IID_ACCESSOR(XULTreeItemAccessibleBase,
                               XULTREEITEMBASEACCESSIBLE_IMPL_CID)
 
-
 /**
  * Accessible class for items for XUL tree.
  */
 class XULTreeItemAccessible : public XULTreeItemAccessibleBase
 {
-public:
-  XULTreeItemAccessible(nsIContent* aContent, DocAccessible* aDoc,
-                        Accessible* aParent, nsITreeBoxObject* aTree,
-                        nsITreeView* aTreeView, int32_t aRow);
+ public:
+  XULTreeItemAccessible(nsIContent* aContent,
+                        DocAccessible* aDoc,
+                        Accessible* aParent,
+                        nsITreeBoxObject* aTree,
+                        nsITreeView* aTreeView,
+                        int32_t aRow);
 
   // nsISupports and cycle collection
   NS_DECL_ISUPPORTS_INHERITED
@@ -236,9 +253,10 @@ public:
   virtual a11y::role NativeRole() override;
 
   // XULTreeItemAccessibleBase
-  virtual void RowInvalidated(int32_t aStartColIdx, int32_t aEndColIdx) override;
+  virtual void RowInvalidated(int32_t aStartColIdx,
+                              int32_t aEndColIdx) override;
 
-protected:
+ protected:
   virtual ~XULTreeItemAccessible();
 
   // XULTreeItemAccessible
@@ -246,23 +264,19 @@ protected:
   nsString mCachedName;
 };
 
-
 /**
  * Accessible class for columns element of XUL tree.
  */
 class XULTreeColumAccessible : public XULColumAccessible
 {
-public:
+ public:
   XULTreeColumAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
-protected:
-
+ protected:
   // Accessible
-  virtual Accessible* GetSiblingAtOffset(int32_t aOffset,
-                                         nsresult* aError = nullptr) const
-    override;
+  virtual Accessible* GetSiblingAtOffset(
+      int32_t aOffset, nsresult* aError = nullptr) const override;
 };
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // Accessible downcasting method
@@ -273,7 +287,7 @@ Accessible::AsXULTree()
   return IsXULTree() ? static_cast<XULTreeAccessible*>(this) : nullptr;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

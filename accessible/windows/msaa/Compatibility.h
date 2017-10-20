@@ -19,7 +19,7 @@ namespace a11y {
  */
 class Compatibility
 {
-public:
+ public:
   /**
    * Return true if JAWS mode is enabled.
    */
@@ -50,22 +50,23 @@ public:
    * Return a string describing sConsumers suitable for about:support.
    * Exposed through nsIXULRuntime.accessibilityInstantiator.
    */
-  static void GetHumanReadableConsumersStr(nsAString &aResult);
+  static void GetHumanReadableConsumersStr(nsAString& aResult);
 
   /**
    * Initialize compatibility mode information.
    */
   static void Init();
 
-private:
+ private:
   Compatibility();
   Compatibility(const Compatibility&);
-  Compatibility& operator = (const Compatibility&);
+  Compatibility& operator=(const Compatibility&);
 
   /**
    * List of detected consumers of a11y (used for statistics/telemetry and compat)
    */
-  enum {
+  enum
+  {
     NVDA = 1 << 0,
     JAWS = 1 << 1,
     OLDJAWS = 1 << 2,
@@ -79,13 +80,13 @@ private:
     UNKNOWN = 1 << 10,
     UIAUTOMATION = 1 << 11
   };
-  #define CONSUMERS_ENUM_LEN 12
+#define CONSUMERS_ENUM_LEN 12
 
-private:
+ private:
   static uint32_t sConsumers;
 };
 
-} // a11y namespace
-} // mozilla namespace
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

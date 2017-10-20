@@ -29,7 +29,6 @@
 #include "generated_ulscript.h"
 #include "integral_types.h"
 
-
 // NOTE: The script numbers and language numbers here are not guaranteed to be
 // stable. If you want to record a result for posterity, save the
 // ULScriptCode(ULScript ulscript) result as character strings.
@@ -76,17 +75,23 @@ namespace CLD2 {
 
 // If the input is out of range or otherwise unrecognized, it is treated
 // as ULScript_Common (which never participates in language recognition)
-const char* ULScriptName(ULScript ulscript);
-const char* ULScriptCode(ULScript ulscript);
-const char* ULScriptDeclaredName(ULScript ulscript);
-ULScriptRType ULScriptRecognitionType(ULScript ulscript);
+const char*
+ULScriptName(ULScript ulscript);
+const char*
+ULScriptCode(ULScript ulscript);
+const char*
+ULScriptDeclaredName(ULScript ulscript);
+ULScriptRType
+ULScriptRecognitionType(ULScript ulscript);
 
 // Name can be either full name or ISO code, or can be ISO code embedded in
 // a language-script combination such as "en-Latn-GB"
-ULScript GetULScriptFromName(const char* src);
+ULScript
+GetULScriptFromName(const char* src);
 
 // Map script into Latin, Cyrillic, Arabic, Other
-int LScript4(ULScript ulscript);
+int
+LScript4(ULScript ulscript);
 
 //----------------------------------------------------------------------------//
 // Functions of Language                                                      //
@@ -110,7 +115,6 @@ int LScript4(ULScript ulscript);
 // The Language enum includes the fake language numbers for RTypeNone above.
 //
 
-
 // If the input is out of range or otherwise unrecognized, it is treated
 // as UNKNOWN_LANGUAGE
 //
@@ -128,28 +132,36 @@ int LScript4(ULScript ulscript);
 //   Portuguese-Portugal, Portuguese-Brazil, Limbu)
 // - Fake RTypeNone names.
 
-const char* LanguageName(Language lang);
-const char* LanguageCode(Language lang);
-const char* LanguageShortCode(Language lang);
-const char* LanguageDeclaredName(Language lang);
+const char*
+LanguageName(Language lang);
+const char*
+LanguageCode(Language lang);
+const char*
+LanguageShortCode(Language lang);
+const char*
+LanguageDeclaredName(Language lang);
 
 // n is in 0..3. Trailing entries are filled with
 // ULScript_Common (which never participates in language recognition)
-ULScript LanguageRecognizedScript(Language lang, int n);
+ULScript
+LanguageRecognizedScript(Language lang, int n);
 
 // Name can be either full name or ISO code, or can be ISO code embedded in
 // a language-script combination such as "en-Latn-GB"
-Language GetLanguageFromName(const char* src);
+Language
+GetLanguageFromName(const char* src);
 
 // Returns which set of statistically-close languages lang is in. 0 means none.
-int LanguageCloseSet(Language lang);
+int
+LanguageCloseSet(Language lang);
 
 //----------------------------------------------------------------------------//
 // Functions of ULScript and Language                                         //
 //----------------------------------------------------------------------------//
 
 // Most common language in each script
-Language DefaultLanguage(ULScript ulscript);
+Language
+DefaultLanguage(ULScript ulscript);
 
 // For RTypeMany recognition,
 // the CLD2 lookup tables are kept small by encoding a language into one byte.
@@ -162,8 +174,10 @@ Language DefaultLanguage(ULScript ulscript);
 // numbers and map all the other RTypeMany languages to an overlapping range
 // 1..255 of per-script numbers.
 
-uint8 PerScriptNumber(ULScript ulscript, Language lang);
-Language FromPerScriptNumber(ULScript ulscript, uint8 perscript_number);
+uint8
+PerScriptNumber(ULScript ulscript, Language lang);
+Language
+FromPerScriptNumber(ULScript ulscript, uint8 perscript_number);
 
 // While the speed-sensitive processing deals with per-script language numbers,
 // there is a need for low-performance dealing with original language numbers
@@ -171,16 +185,18 @@ Language FromPerScriptNumber(ULScript ulscript, uint8 perscript_number);
 // These routines let one derive a script class from a bare language.
 // For languages written in multiple scripts, both of these can return true.
 
-bool IsLatnLanguage(Language lang);
-bool IsOthrLanguage(Language lang);
-
+bool
+IsLatnLanguage(Language lang);
+bool
+IsOthrLanguage(Language lang);
 
 //----------------------------------------------------------------------------//
 // Other                                                                      //
 //----------------------------------------------------------------------------//
 
 // Utility routine to search alphabetical tables
-int BinarySearch(const char* key, int lo, int hi, const CharIntPair* cipair);
+int
+BinarySearch(const char* key, int lo, int hi, const CharIntPair* cipair);
 
 }  // namespace CLD2
 

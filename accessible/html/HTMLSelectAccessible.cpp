@@ -28,9 +28,9 @@ using namespace mozilla::dom;
 // HTMLSelectListAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLSelectListAccessible::
-  HTMLSelectListAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  AccessibleWrap(aContent, aDoc)
+HTMLSelectListAccessible::HTMLSelectListAccessible(nsIContent* aContent,
+                                                   DocAccessible* aDoc)
+    : AccessibleWrap(aContent, aDoc)
 {
   mGenericTypes |= eListControl | eSelect;
 }
@@ -60,15 +60,17 @@ HTMLSelectListAccessible::NativeRole()
 bool
 HTMLSelectListAccessible::SelectAll()
 {
-  return mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::multiple) ?
-    AccessibleWrap::SelectAll() : false;
+  return mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::multiple)
+             ? AccessibleWrap::SelectAll()
+             : false;
 }
 
 bool
 HTMLSelectListAccessible::UnselectAll()
 {
-  return mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::multiple) ?
-    AccessibleWrap::UnselectAll() : false;
+  return mContent->HasAttr(kNameSpaceID_None, nsGkAtoms::multiple)
+             ? AccessibleWrap::UnselectAll()
+             : false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -97,11 +99,11 @@ HTMLSelectListAccessible::CurrentItem()
 {
   nsIListControlFrame* listControlFrame = do_QueryFrame(GetFrame());
   if (listControlFrame) {
-    nsCOMPtr<nsIContent> activeOptionNode = listControlFrame->GetCurrentOption();
+    nsCOMPtr<nsIContent> activeOptionNode =
+        listControlFrame->GetCurrentOption();
     if (activeOptionNode) {
       DocAccessible* document = Document();
-      if (document)
-        return document->GetAccessible(activeOptionNode);
+      if (document) return document->GetAccessible(activeOptionNode);
     }
   }
   return nullptr;
@@ -110,9 +112,8 @@ HTMLSelectListAccessible::CurrentItem()
 void
 HTMLSelectListAccessible::SetCurrentItem(Accessible* aItem)
 {
-  aItem->GetContent()->SetAttr(kNameSpaceID_None,
-                               nsGkAtoms::selected, NS_LITERAL_STRING("true"),
-                               true);
+  aItem->GetContent()->SetAttr(
+      kNameSpaceID_None, nsGkAtoms::selected, NS_LITERAL_STRING("true"), true);
 }
 
 bool
@@ -125,9 +126,9 @@ HTMLSelectListAccessible::IsAcceptableChild(nsIContent* aEl) const
 // HTMLSelectOptionAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLSelectOptionAccessible::
-  HTMLSelectOptionAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLSelectOptionAccessible::HTMLSelectOptionAccessible(nsIContent* aContent,
+                                                       DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -137,8 +138,7 @@ HTMLSelectOptionAccessible::
 role
 HTMLSelectOptionAccessible::NativeRole()
 {
-  if (GetCombobox())
-    return roles::COMBOBOX_OPTION;
+  if (GetCombobox()) return roles::COMBOBOX_OPTION;
 
   return roles::OPTION;
 }
@@ -149,8 +149,7 @@ HTMLSelectOptionAccessible::NativeName(nsString& aName)
   // CASE #1 -- great majority of the cases
   // find the label attribute - this is what the W3C says we should use
   mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::label, aName);
-  if (!aName.IsEmpty())
-    return eNameOK;
+  if (!aName.IsEmpty()) return eNameOK;
 
   // CASE #2 -- no label parameter, get the first child,
   // use it if it is a text node
@@ -174,18 +173,15 @@ HTMLSelectOptionAccessible::NativeState()
   uint64_t state = Accessible::NativeState();
 
   Accessible* select = GetSelect();
-  if (!select)
-    return state;
+  if (!select) return state;
 
   uint64_t selectState = select->State();
-  if (selectState & states::INVISIBLE)
-    return state;
+  if (selectState & states::INVISIBLE) return state;
 
   // Are we selected?
   HTMLOptionElement* option = HTMLOptionElement::FromContent(mContent);
   bool selected = option && option->Selected();
-  if (selected)
-    state |= states::SELECTED;
+  if (selected) state |= states::SELECTED;
 
   if (selectState & states::OFFSCREEN) {
     state |= states::OFFSCREEN;
@@ -222,8 +218,8 @@ HTMLSelectOptionAccessible::NativeState()
 uint64_t
 HTMLSelectOptionAccessible::NativeInteractiveState() const
 {
-  return NativelyUnavailable() ?
-    states::UNAVAILABLE : states::FOCUSABLE | states::SELECTABLE;
+  return NativelyUnavailable() ? states::UNAVAILABLE
+                               : states::FOCUSABLE | states::SELECTABLE;
 }
 
 int32_t
@@ -232,10 +228,10 @@ HTMLSelectOptionAccessible::GetLevelInternal()
   nsIContent* parentContent = mContent->GetParent();
 
   int32_t level =
-    parentContent->NodeInfo()->Equals(nsGkAtoms::optgroup) ? 2 : 1;
+      parentContent->NodeInfo()->Equals(nsGkAtoms::optgroup) ? 2 : 1;
 
   if (level == 1 && Role() != roles::HEADING)
-    level = 0; // In a single level list, the level is irrelevant
+    level = 0;  // In a single level list, the level is irrelevant
 
   return level;
 }
@@ -253,8 +249,7 @@ HTMLSelectOptionAccessible::RelativeBounds(nsIFrame** aBoundingFrame) const
 void
 HTMLSelectOptionAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 {
-  if (aIndex == eAction_Select)
-    aName.AssignLiteral("select");
+  if (aIndex == eAction_Select) aName.AssignLiteral("select");
 }
 
 uint8_t
@@ -266,8 +261,7 @@ HTMLSelectOptionAccessible::ActionCount()
 bool
 HTMLSelectOptionAccessible::DoAction(uint8_t aIndex)
 {
-  if (aIndex != eAction_Select)
-    return false;
+  if (aIndex != eAction_Select) return false;
 
   DoCommand();
   return true;
@@ -277,8 +271,7 @@ void
 HTMLSelectOptionAccessible::SetSelected(bool aSelect)
 {
   HTMLOptionElement* option = HTMLOptionElement::FromContent(mContent);
-  if (option)
-    option->SetSelected(aSelect);
+  if (option) option->SetSelected(aSelect);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -288,8 +281,7 @@ Accessible*
 HTMLSelectOptionAccessible::ContainerWidget() const
 {
   Accessible* parent = Parent();
-  if (parent && parent->IsHTMLOptGroup())
-    parent = parent->Parent();
+  if (parent && parent->IsHTMLOptGroup()) parent = parent->Parent();
 
   return parent && parent->IsListControl() ? parent : nullptr;
 }
@@ -314,7 +306,7 @@ bool
 HTMLSelectOptGroupAccessible::IsAcceptableChild(nsIContent* aEl) const
 {
   return aEl->IsNodeOfType(nsINode::eDATA_NODE) ||
-    aEl->IsHTMLElement(nsGkAtoms::option);
+         aEl->IsHTMLElement(nsGkAtoms::option);
 }
 
 uint8_t
@@ -339,9 +331,9 @@ HTMLSelectOptGroupAccessible::DoAction(uint8_t aIndex)
 // HTMLComboboxAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLComboboxAccessible::
-  HTMLComboboxAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  AccessibleWrap(aContent, aDoc)
+HTMLComboboxAccessible::HTMLComboboxAccessible(nsIContent* aContent,
+                                               DocAccessible* aDoc)
+    : AccessibleWrap(aContent, aDoc)
 {
   mType = eHTMLComboboxType;
   mGenericTypes |= eCombobox;
@@ -415,13 +407,11 @@ HTMLComboboxAccessible::Description(nsString& aDescription)
   // First check to see if combo box itself has a description, perhaps through
   // tooltip (title attribute) or via aria-describedby
   Accessible::Description(aDescription);
-  if (!aDescription.IsEmpty())
-    return;
+  if (!aDescription.IsEmpty()) return;
 
   // Otherwise use description of selected option.
   Accessible* option = SelectedOption();
-  if (option)
-    option->Description(aDescription);
+  if (option) option->Description(aDescription);
 }
 
 void
@@ -429,8 +419,7 @@ HTMLComboboxAccessible::Value(nsString& aValue)
 {
   // Use accessible name of selected option.
   Accessible* option = SelectedOption();
-  if (option)
-    option->Name(aValue);
+  if (option) option->Name(aValue);
 }
 
 uint8_t
@@ -442,8 +431,7 @@ HTMLComboboxAccessible::ActionCount()
 bool
 HTMLComboboxAccessible::DoAction(uint8_t aIndex)
 {
-  if (aIndex != eAction_Click)
-    return false;
+  if (aIndex != eAction_Click) return false;
 
   DoCommand();
   return true;
@@ -452,12 +440,10 @@ HTMLComboboxAccessible::DoAction(uint8_t aIndex)
 void
 HTMLComboboxAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 {
-  if (aIndex != HTMLComboboxAccessible::eAction_Click)
-    return;
+  if (aIndex != HTMLComboboxAccessible::eAction_Click) return;
 
   nsIComboboxControlFrame* comboFrame = do_QueryFrame(GetFrame());
-  if (!comboFrame)
-    return;
+  if (!comboFrame) return;
 
   if (comboFrame->IsDroppedDown())
     aName.AssignLiteral("close");
@@ -502,8 +488,7 @@ HTMLComboboxAccessible::CurrentItem()
 void
 HTMLComboboxAccessible::SetCurrentItem(Accessible* aItem)
 {
-  if (AreItemsOperable())
-    mListAccessible->SetCurrentItem(aItem);
+  if (AreItemsOperable()) mListAccessible->SetCurrentItem(aItem);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -519,23 +504,21 @@ HTMLComboboxAccessible::SelectedOption() const
     HTMLOptionElement* option = select->Item(selectedIndex);
     if (option) {
       DocAccessible* document = Document();
-      if (document)
-        return document->GetAccessible(option);
+      if (document) return document->GetAccessible(option);
     }
   }
 
   return nullptr;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLComboboxListAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLComboboxListAccessible::
-  HTMLComboboxListAccessible(Accessible* aParent, nsIContent* aContent,
-                             DocAccessible* aDoc) :
-  HTMLSelectListAccessible(aContent, aDoc)
+HTMLComboboxListAccessible::HTMLComboboxListAccessible(Accessible* aParent,
+                                                       nsIContent* aContent,
+                                                       DocAccessible* aDoc)
+    : HTMLSelectListAccessible(aContent, aDoc)
 {
   mStateFlags |= eSharedNode;
 }
@@ -584,8 +567,7 @@ HTMLComboboxListAccessible::RelativeBounds(nsIFrame** aBoundingFrame) const
   *aBoundingFrame = nullptr;
 
   Accessible* comboAcc = Parent();
-  if (!comboAcc)
-    return nsRect();
+  if (!comboAcc) return nsRect();
 
   if (0 == (comboAcc->State() & states::COLLAPSED)) {
     return HTMLSelectListAccessible::RelativeBounds(aBoundingFrame);
@@ -593,8 +575,7 @@ HTMLComboboxListAccessible::RelativeBounds(nsIFrame** aBoundingFrame) const
 
   // Get the first option.
   nsIContent* content = mContent->GetFirstChild();
-  if (!content)
-    return nsRect();
+  if (!content) return nsRect();
 
   nsIFrame* frame = content->GetPrimaryFrame();
   if (!frame) {

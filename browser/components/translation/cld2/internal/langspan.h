@@ -16,7 +16,6 @@
 // Author: dsites@google.com (Dick Sites)
 //
 
-
 #ifndef I18N_ENCODINGS_CLD2_INTERNAL_LANGSPAN_H_
 #define I18N_ENCODINGS_CLD2_INTERNAL_LANGSPAN_H_
 
@@ -25,16 +24,16 @@
 
 namespace CLD2 {
 
-typedef struct {
-  char* text;             // Pointer to the span, somewhere
-  int text_bytes;         // Number of bytes of text in the span
-  int offset;             // Offset of start of span in original input buffer
-  ULScript ulscript;      // Unicode Letters Script of this span
-  Language lang;          // Language identified for this span
-  bool truncated;         // true if buffer filled up before a
-                          // different script or EOF was found
+typedef struct
+{
+  char* text;         // Pointer to the span, somewhere
+  int text_bytes;     // Number of bytes of text in the span
+  int offset;         // Offset of start of span in original input buffer
+  ULScript ulscript;  // Unicode Letters Script of this span
+  Language lang;      // Language identified for this span
+  bool truncated;     // true if buffer filled up before a
+                      // different script or EOF was found
 } LangSpan;
 
 }  // namespace CLD2
 #endif  // I18N_ENCODINGS_CLD2_INTERNAL_LANGSPAN_H_
-

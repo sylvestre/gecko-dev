@@ -45,8 +45,8 @@ a11y::ProxyCaretMoveEvent(ProxyAccessible* aTarget, int32_t aOffset)
 }
 
 void
-a11y::ProxyTextChangeEvent(ProxyAccessible*, const nsString&, int32_t, uint32_t,
-                     bool, bool)
+a11y::ProxyTextChangeEvent(
+    ProxyAccessible*, const nsString&, int32_t, uint32_t, bool, bool)
 {
 }
 

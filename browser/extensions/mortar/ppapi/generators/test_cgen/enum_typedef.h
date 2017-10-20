@@ -17,19 +17,12 @@
  * This file will test that the IDL snippet matches the comment.
  */
 
-
 /**
  * @addtogroup Enums
  * @{
  */
 /* typedef enum { A = 1, B = 2, C = 3, D = A + B, E = ~D } et1; */
-typedef enum {
-  A = 1,
-  B = 2,
-  C = 3,
-  D = A + B,
-  E = ~D
-} et1;
+typedef enum { A = 1, B = 2, C = 3, D = A + B, E = ~D } et1;
 /**
  * @}
  */
@@ -65,5 +58,4 @@ typedef int8_t (*PPB_Audio_Callback)(const void* sample_buffer,
  * @}
  */
 
-#endif  /* PPAPI_C_TEST_CGEN_ENUM_TYPEDEF_H_ */
-
+#endif /* PPAPI_C_TEST_CGEN_ENUM_TYPEDEF_H_ */

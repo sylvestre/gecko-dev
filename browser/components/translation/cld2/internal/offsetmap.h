@@ -19,8 +19,8 @@
 #ifndef UTIL_UTF8_OFFSETMAP_H_
 #define UTIL_UTF8_OFFSETMAP_H_
 
-#include <string>                       // for string
-#include "integral_types.h"             // for uint32
+#include <string>            // for string
+#include "integral_types.h"  // for uint32
 
 // ***************************** OffsetMap **************************
 //
@@ -45,7 +45,8 @@
 
 namespace CLD2 {
 
-class OffsetMap {
+class OffsetMap
+{
  public:
   // Constructor, destructor
   OffsetMap();
@@ -118,7 +119,13 @@ class OffsetMap {
   void StuffIt(const std::string& diffs, int max_aoffset, int max_aprimeoffset);
 
  private:
-  enum MapOp {PREFIX_OP, COPY_OP, INSERT_OP, DELETE_OP};
+  enum MapOp
+  {
+    PREFIX_OP,
+    COPY_OP,
+    INSERT_OP,
+    DELETE_OP
+  };
 
   void Flush();
   void FlushAll();
@@ -142,8 +149,8 @@ class OffsetMap {
 
   void PrintPosition(const char* str);
 
-  bool MoveRight();     // Returns true if OK
-  bool MoveLeft();      // Returns true if OK
+  bool MoveRight();  // Returns true if OK
+  bool MoveLeft();   // Returns true if OK
   void DumpString();
 
   // Copies insert operations from source to dest. Returns true if no
@@ -172,4 +179,3 @@ class OffsetMap {
 }  // namespace CLD2
 
 #endif  // UTIL_UTF8_OFFSETMAP_H_
-

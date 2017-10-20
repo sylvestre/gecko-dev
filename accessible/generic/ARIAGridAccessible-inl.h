@@ -23,17 +23,15 @@ ARIAGridCellAccessible::RowIndexFor(Accessible* aRow) const
     int32_t rowIdx = 0;
     Accessible* row = nullptr;
     AccIterator rowIter(table, filters::GetRow);
-    while ((row = rowIter.Next()) && row != aRow)
-      rowIdx++;
+    while ((row = rowIter.Next()) && row != aRow) rowIdx++;
 
-    if (row)
-      return rowIdx;
+    if (row) return rowIdx;
   }
 
   return -1;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

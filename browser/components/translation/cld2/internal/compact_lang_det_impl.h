@@ -21,7 +21,7 @@
 
 #include <vector>
 
-#include "../public/compact_lang_det.h"   // For CLDHints, ResultChunkVector
+#include "../public/compact_lang_det.h"  // For CLDHints, ResultChunkVector
 #include "integral_types.h"
 #include "lang_script.h"
 
@@ -92,72 +92,73 @@ At the end of the first pass --
           other crap.
 ***/
 
+// Scan interchange-valid UTF-8 bytes and detect most likely language,
+// or set of languages.
+//
+// Design goals:
+//   Skip over big stretches of HTML tags
+//   Able to return ranges of different languages
+//   Relatively small tables and relatively fast processing
+//   Thread safe
+//
 
-  // Scan interchange-valid UTF-8 bytes and detect most likely language,
-  // or set of languages.
-  //
-  // Design goals:
-  //   Skip over big stretches of HTML tags
-  //   Able to return ranges of different languages
-  //   Relatively small tables and relatively fast processing
-  //   Thread safe
-  //
+typedef struct
+{
+  int perscript_count;
+  const Language* perscript_lang;
+} PerScriptPair;
 
-  typedef struct {
-    int perscript_count;
-    const Language* perscript_lang;
-  } PerScriptPair;
+typedef struct
+{
+  // Constants for hashing 4-7 byte quadgram to 32 bits
+  const int kQuadHashB4Shift;
+  const int kQuadHashB4bShift;
+  const int kQuadHashB5Shift;
+  const int kQuadHashB5bShift;
+  // Constants for hashing 32 bits to kQuadKeyTable subscript/key
+  const int kHashvalToSubShift;
+  const uint32 kHashvalToSubMask;
+  const int kHashvalToKeyShift;
+  const uint32 kHashvalToKeyMask;
+  const int kHashvalAssociativity;
+  // Pointers to the actual tables
+  const PerScriptPair* kPerScriptPair;
+  const uint16* kQuadKeyTable;
+  const uint32* kQuadValueTable;
+} LangDetObj;
 
-  typedef struct {
-    // Constants for hashing 4-7 byte quadgram to 32 bits
-    const int kQuadHashB4Shift;
-    const int kQuadHashB4bShift;
-    const int kQuadHashB5Shift;
-    const int kQuadHashB5bShift;
-    // Constants for hashing 32 bits to kQuadKeyTable subscript/key
-    const int kHashvalToSubShift;
-    const uint32 kHashvalToSubMask;
-    const int kHashvalToKeyShift;
-    const uint32 kHashvalToKeyMask;
-    const int kHashvalAssociativity;
-    // Pointers to the actual tables
-    const PerScriptPair* kPerScriptPair;
-    const uint16* kQuadKeyTable;
-    const uint32* kQuadValueTable;
-  } LangDetObj;
+// For HTML documents, tags are skipped, along with <script> ... </script>
+// and <style> ... </style> sequences, and entities are expanded.
+//
+// We distinguish between bytes of the raw input buffer and bytes of non-tag
+// text letters. Since tags can be over 50% of the bytes of an HTML Page,
+// and are nearly all seven-bit ASCII English, we prefer to distinguish
+// language mixture fractions based on just the non-tag text.
+//
+// Inputs: text and text_length
+//  is_plain_text if true says to NOT parse/skip HTML tags nor entities
+// Outputs:
+//  language3 is an array of the top 3 languages or UNKNOWN_LANGUAGE
+//  percent3 is an array of the text percentages 0..100 of the top 3 languages
+//  normalized_score3 is an array of internal scores, normalized to the
+//    average score for each language over a body of training text. A
+//    normalized score significantly away from 1.0 indicates very skewed text
+//    or gibberish.
+//
+//  text_bytes is the amount of non-tag/letters-only text found
+//  is_reliable set true if the returned Language is at least 2**30 times more
+//  probable then the second-best Language
+//
+// Return value: the most likely Language for the majority of the input text
+//  Length 0 input and text with no reliable letter sequences returns
+//  UNKNOWN_LANGUAGE
+//
+// Subsetting: For fast detection over large documents, these routines will
+// only scan up to a fixed limit (currently 160KB of non-tag letters).
+//
 
-  // For HTML documents, tags are skipped, along with <script> ... </script>
-  // and <style> ... </style> sequences, and entities are expanded.
-  //
-  // We distinguish between bytes of the raw input buffer and bytes of non-tag
-  // text letters. Since tags can be over 50% of the bytes of an HTML Page,
-  // and are nearly all seven-bit ASCII English, we prefer to distinguish
-  // language mixture fractions based on just the non-tag text.
-  //
-  // Inputs: text and text_length
-  //  is_plain_text if true says to NOT parse/skip HTML tags nor entities
-  // Outputs:
-  //  language3 is an array of the top 3 languages or UNKNOWN_LANGUAGE
-  //  percent3 is an array of the text percentages 0..100 of the top 3 languages
-  //  normalized_score3 is an array of internal scores, normalized to the
-  //    average score for each language over a body of training text. A
-  //    normalized score significantly away from 1.0 indicates very skewed text
-  //    or gibberish.
-  //
-  //  text_bytes is the amount of non-tag/letters-only text found
-  //  is_reliable set true if the returned Language is at least 2**30 times more
-  //  probable then the second-best Language
-  //
-  // Return value: the most likely Language for the majority of the input text
-  //  Length 0 input and text with no reliable letter sequences returns
-  //  UNKNOWN_LANGUAGE
-  //
-  // Subsetting: For fast detection over large documents, these routines will
-  // only scan up to a fixed limit (currently 160KB of non-tag letters).
-  //
-
-  Language DetectLanguageSummaryV2(
-                        const char* buffer,
+Language
+DetectLanguageSummaryV2(const char* buffer,
                         int buffer_length,
                         bool is_plain_text,
                         const CLDHints* cld_hints,
@@ -171,13 +172,14 @@ At the end of the first pass --
                         int* text_bytes,
                         bool* is_reliable);
 
-  // For unit testing:
-  // Remove portions of text that have a high density of spaces, or that are
-  // overly repetitive, squeezing the remaining text in-place to the front
-  // of the input buffer.
-  // Return the new, possibly-shorter length
-  int CheapSqueezeInplace(char* isrc, int srclen, int ichunksize);
+// For unit testing:
+// Remove portions of text that have a high density of spaces, or that are
+// overly repetitive, squeezing the remaining text in-place to the front
+// of the input buffer.
+// Return the new, possibly-shorter length
+int
+CheapSqueezeInplace(char* isrc, int srclen, int ichunksize);
 
-}       // End namespace CLD2
+}  // End namespace CLD2
 
 #endif  // I18N_ENCODINGS_COMPACT_LANG_DET_COMPACT_LANG_DET_IMPL_H_

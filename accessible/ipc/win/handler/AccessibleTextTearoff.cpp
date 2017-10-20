@@ -6,7 +6,7 @@
 
 #if defined(MOZILLA_INTERNAL_API)
 #error This code is NOT for internal Gecko use!
-#endif // defined(MOZILLA_INTERNAL_API)
+#endif  // defined(MOZILLA_INTERNAL_API)
 
 #include "AccessibleTextTearoff.h"
 
@@ -21,7 +21,7 @@ namespace mozilla {
 namespace a11y {
 
 AccessibleTextTearoff::AccessibleTextTearoff(AccessibleHandler* aHandler)
-  : mHandler(aHandler)
+    : mHandler(aHandler)
 {
   MOZ_ASSERT(aHandler);
 }
@@ -75,20 +75,22 @@ AccessibleTextTearoff::addSelection(long startOffset, long endOffset)
 }
 
 HRESULT
-AccessibleTextTearoff::get_attributes(long offset, long *startOffset,
-                                      long *endOffset, BSTR *textAttributes)
+AccessibleTextTearoff::get_attributes(long offset,
+                                      long* startOffset,
+                                      long* endOffset,
+                                      BSTR* textAttributes)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
     return hr;
   }
 
-  return mAccTextProxy->get_attributes(offset, startOffset, endOffset,
-                                       textAttributes);
+  return mAccTextProxy->get_attributes(
+      offset, startOffset, endOffset, textAttributes);
 }
 
 HRESULT
-AccessibleTextTearoff::get_caretOffset(long *offset)
+AccessibleTextTearoff::get_caretOffset(long* offset)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
@@ -101,20 +103,22 @@ AccessibleTextTearoff::get_caretOffset(long *offset)
 HRESULT
 AccessibleTextTearoff::get_characterExtents(long offset,
                                             enum IA2CoordinateType coordType,
-                                            long *x, long *y, long *width,
-                                            long *height)
+                                            long* x,
+                                            long* y,
+                                            long* width,
+                                            long* height)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
     return hr;
   }
 
-  return mAccTextProxy->get_characterExtents(offset, coordType, x, y, width,
-                                             height);
+  return mAccTextProxy->get_characterExtents(
+      offset, coordType, x, y, width, height);
 }
 
 HRESULT
-AccessibleTextTearoff::get_nSelections(long *nSelections)
+AccessibleTextTearoff::get_nSelections(long* nSelections)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
@@ -125,9 +129,10 @@ AccessibleTextTearoff::get_nSelections(long *nSelections)
 }
 
 HRESULT
-AccessibleTextTearoff::get_offsetAtPoint(long x, long y,
+AccessibleTextTearoff::get_offsetAtPoint(long x,
+                                         long y,
                                          enum IA2CoordinateType coordType,
-                                         long *offset)
+                                         long* offset)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
@@ -138,8 +143,9 @@ AccessibleTextTearoff::get_offsetAtPoint(long x, long y,
 }
 
 HRESULT
-AccessibleTextTearoff::get_selection(long selectionIndex, long *startOffset,
-                                     long *endOffset)
+AccessibleTextTearoff::get_selection(long selectionIndex,
+                                     long* startOffset,
+                                     long* endOffset)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
@@ -150,7 +156,7 @@ AccessibleTextTearoff::get_selection(long selectionIndex, long *startOffset,
 }
 
 HRESULT
-AccessibleTextTearoff::get_text(long startOffset, long endOffset, BSTR *text)
+AccessibleTextTearoff::get_text(long startOffset, long endOffset, BSTR* text)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
@@ -161,48 +167,53 @@ AccessibleTextTearoff::get_text(long startOffset, long endOffset, BSTR *text)
 }
 
 HRESULT
-AccessibleTextTearoff::get_textBeforeOffset(long offset,
-                                            enum IA2TextBoundaryType boundaryType,
-                                            long *startOffset, long *endOffset,
-                                            BSTR *text)
+AccessibleTextTearoff::get_textBeforeOffset(
+    long offset,
+    enum IA2TextBoundaryType boundaryType,
+    long* startOffset,
+    long* endOffset,
+    BSTR* text)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
     return hr;
   }
 
-  return mAccTextProxy->get_textBeforeOffset(offset, boundaryType, startOffset,
-                                             endOffset, text);
+  return mAccTextProxy->get_textBeforeOffset(
+      offset, boundaryType, startOffset, endOffset, text);
 }
 
 HRESULT
-AccessibleTextTearoff::get_textAfterOffset(long offset,
-                                           enum IA2TextBoundaryType boundaryType,
-                                           long *startOffset, long *endOffset,
-                                           BSTR *text)
+AccessibleTextTearoff::get_textAfterOffset(
+    long offset,
+    enum IA2TextBoundaryType boundaryType,
+    long* startOffset,
+    long* endOffset,
+    BSTR* text)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
     return hr;
   }
 
-  return mAccTextProxy->get_textAfterOffset(offset, boundaryType,
-                                            startOffset, endOffset, text);
+  return mAccTextProxy->get_textAfterOffset(
+      offset, boundaryType, startOffset, endOffset, text);
 }
 
 HRESULT
 AccessibleTextTearoff::get_textAtOffset(long offset,
                                         enum IA2TextBoundaryType boundaryType,
-                                        long *startOffset, long *endOffset,
-                                        BSTR *text)
+                                        long* startOffset,
+                                        long* endOffset,
+                                        BSTR* text)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
     return hr;
   }
 
-  return mAccTextProxy->get_textAtOffset(offset, boundaryType, startOffset,
-                                         endOffset, text);
+  return mAccTextProxy->get_textAtOffset(
+      offset, boundaryType, startOffset, endOffset, text);
 }
 
 HRESULT
@@ -228,7 +239,8 @@ AccessibleTextTearoff::setCaretOffset(long offset)
 }
 
 HRESULT
-AccessibleTextTearoff::setSelection(long selectionIndex, long startOffset,
+AccessibleTextTearoff::setSelection(long selectionIndex,
+                                    long startOffset,
                                     long endOffset)
 {
   HRESULT hr = ResolveAccText();
@@ -240,7 +252,7 @@ AccessibleTextTearoff::setSelection(long selectionIndex, long startOffset,
 }
 
 HRESULT
-AccessibleTextTearoff::get_nCharacters(long *nCharacters)
+AccessibleTextTearoff::get_nCharacters(long* nCharacters)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
@@ -251,7 +263,8 @@ AccessibleTextTearoff::get_nCharacters(long *nCharacters)
 }
 
 HRESULT
-AccessibleTextTearoff::scrollSubstringTo(long startIndex, long endIndex,
+AccessibleTextTearoff::scrollSubstringTo(long startIndex,
+                                         long endIndex,
                                          enum IA2ScrollType scrollType)
 {
   HRESULT hr = ResolveAccText();
@@ -263,21 +276,24 @@ AccessibleTextTearoff::scrollSubstringTo(long startIndex, long endIndex,
 }
 
 HRESULT
-AccessibleTextTearoff::scrollSubstringToPoint(long startIndex, long endIndex,
-                                              enum IA2CoordinateType coordinateType,
-                                              long x, long y)
+AccessibleTextTearoff::scrollSubstringToPoint(
+    long startIndex,
+    long endIndex,
+    enum IA2CoordinateType coordinateType,
+    long x,
+    long y)
 {
   HRESULT hr = ResolveAccText();
   if (FAILED(hr)) {
     return hr;
   }
 
-  return mAccTextProxy->scrollSubstringToPoint(startIndex, endIndex,
-                                               coordinateType, x, y);
+  return mAccTextProxy->scrollSubstringToPoint(
+      startIndex, endIndex, coordinateType, x, y);
 }
 
 HRESULT
-AccessibleTextTearoff::get_newText(IA2TextSegment *newText)
+AccessibleTextTearoff::get_newText(IA2TextSegment* newText)
 {
   if (!newText) {
     return E_INVALIDARG;
@@ -299,7 +315,7 @@ AccessibleTextTearoff::get_newText(IA2TextSegment *newText)
 }
 
 HRESULT
-AccessibleTextTearoff::get_oldText(IA2TextSegment *oldText)
+AccessibleTextTearoff::get_oldText(IA2TextSegment* oldText)
 {
   if (!oldText) {
     return E_INVALIDARG;
@@ -321,7 +337,7 @@ AccessibleTextTearoff::get_oldText(IA2TextSegment *oldText)
 }
 
 HRESULT
-AccessibleTextTearoff::get_nHyperlinks(long *hyperlinkCount)
+AccessibleTextTearoff::get_nHyperlinks(long* hyperlinkCount)
 {
   HRESULT hr = ResolveAccHypertext();
   if (FAILED(hr)) {
@@ -333,7 +349,7 @@ AccessibleTextTearoff::get_nHyperlinks(long *hyperlinkCount)
 
 HRESULT
 AccessibleTextTearoff::get_hyperlink(long index,
-                                     IAccessibleHyperlink **hyperlink)
+                                     IAccessibleHyperlink** hyperlink)
 {
   HRESULT hr = ResolveAccHypertext();
   if (FAILED(hr)) {
@@ -344,7 +360,7 @@ AccessibleTextTearoff::get_hyperlink(long index,
 }
 
 HRESULT
-AccessibleTextTearoff::get_hyperlinkIndex(long charIndex, long *hyperlinkIndex)
+AccessibleTextTearoff::get_hyperlinkIndex(long charIndex, long* hyperlinkIndex)
 {
   HRESULT hr = ResolveAccHypertext();
   if (FAILED(hr)) {
@@ -354,6 +370,5 @@ AccessibleTextTearoff::get_hyperlinkIndex(long charIndex, long *hyperlinkIndex)
   return mAccHypertextProxy->get_hyperlinkIndex(charIndex, hyperlinkIndex);
 }
 
-
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla

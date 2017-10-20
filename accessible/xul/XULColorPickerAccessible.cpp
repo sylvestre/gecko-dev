@@ -21,9 +21,9 @@ using namespace mozilla::a11y;
 // XULColorPickerTileAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULColorPickerTileAccessible::
-  XULColorPickerTileAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  AccessibleWrap(aContent, aDoc)
+XULColorPickerTileAccessible::XULColorPickerTileAccessible(nsIContent* aContent,
+                                                           DocAccessible* aDoc)
+    : AccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -57,8 +57,8 @@ XULColorPickerTileAccessible::NativeState()
 uint64_t
 XULColorPickerTileAccessible::NativeInteractiveState() const
 {
-  return NativelyUnavailable() ?
-    states::UNAVAILABLE : states::FOCUSABLE | states::SELECTABLE;
+  return NativelyUnavailable() ? states::UNAVAILABLE
+                               : states::FOCUSABLE | states::SELECTABLE;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -70,8 +70,7 @@ XULColorPickerTileAccessible::ContainerWidget() const
   Accessible* parent = Parent();
   if (parent) {
     Accessible* grandParent = parent->Parent();
-    if (grandParent && grandParent->IsMenuButton())
-      return grandParent;
+    if (grandParent && grandParent->IsMenuButton()) return grandParent;
   }
   return nullptr;
 }
@@ -80,9 +79,9 @@ XULColorPickerTileAccessible::ContainerWidget() const
 // XULColorPickerAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-XULColorPickerAccessible::
-  XULColorPickerAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  XULColorPickerTileAccessible(aContent, aDoc)
+XULColorPickerAccessible::XULColorPickerAccessible(nsIContent* aContent,
+                                                   DocAccessible* aDoc)
+    : XULColorPickerTileAccessible(aContent, aDoc)
 {
   mGenericTypes |= eMenuButton;
 }
@@ -138,6 +137,8 @@ XULColorPickerAccessible::IsAcceptableChild(nsIContent* aEl) const
   nsAutoString role;
   nsCoreUtils::XBLBindingRole(aEl, role);
   return role.EqualsLiteral("xul:panel") &&
-    aEl->AttrValueIs(kNameSpaceID_None, nsGkAtoms::noautofocus,
-                     nsGkAtoms::_true, eCaseMatters);
+         aEl->AttrValueIs(kNameSpaceID_None,
+                          nsGkAtoms::noautofocus,
+                          nsGkAtoms::_true,
+                          eCaseMatters);
 }

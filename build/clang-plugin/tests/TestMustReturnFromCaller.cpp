@@ -1,7 +1,9 @@
 #include <cstddef>
 
-#define MOZ_MUST_RETURN_FROM_CALLER __attribute__((annotate("moz_must_return_from_caller")))
-#define MOZ_MAY_CALL_AFTER_MUST_RETURN __attribute__((annotate("moz_may_call_after_must_return")))
+#define MOZ_MUST_RETURN_FROM_CALLER                                            \
+  __attribute__((annotate("moz_must_return_from_caller")))
+#define MOZ_MAY_CALL_AFTER_MUST_RETURN                                         \
+  __attribute__((annotate("moz_may_call_after_must_return")))
 
 void MOZ_MUST_RETURN_FROM_CALLER Throw() {}
 void DoAnythingElse();
@@ -15,12 +17,11 @@ public:
   Foo();
 };
 
-void a1() {
-  Throw();
-}
+void a1() { Throw(); }
 
 int a2() {
-  Throw(); // expected-error {{You must immediately return after calling this function}}
+  Throw(); // expected-error {{You must immediately return after calling this
+           // function}}
   return MakeAnInt();
 }
 
@@ -30,23 +31,27 @@ int a3() {
 }
 
 int a4() {
-  Throw(); // expected-error {{You must immediately return after calling this function}}
+  Throw(); // expected-error {{You must immediately return after calling this
+           // function}}
   return Condition() ? MakeAnInt() : MakeAnInt();
 }
 
 void a5() {
-  Throw(); // expected-error {{You must immediately return after calling this function}}
+  Throw(); // expected-error {{You must immediately return after calling this
+           // function}}
   DoAnythingElse();
 }
 
 int a6() {
-  Throw(); // expected-error {{You must immediately return after calling this function}}
+  Throw(); // expected-error {{You must immediately return after calling this
+           // function}}
   DoAnythingElse();
   return MakeAnInt();
 }
 
 int a7() {
-  Throw(); // expected-error {{You must immediately return after calling this function}}
+  Throw(); // expected-error {{You must immediately return after calling this
+           // function}}
   DoAnythingElse();
   return Condition() ? MakeAnInt() : MakeAnInt();
 }
@@ -71,7 +76,8 @@ void b1() {
 
 int b2() {
   if (Condition()) {
-    Throw(); // expected-error {{You must immediately return after calling this function}}
+    Throw(); // expected-error {{You must immediately return after calling this
+             // function}}
   }
   return MakeAnInt();
 }
@@ -85,21 +91,24 @@ int b3() {
 
 int b4() {
   if (Condition()) {
-    Throw(); // expected-error {{You must immediately return after calling this function}}
+    Throw(); // expected-error {{You must immediately return after calling this
+             // function}}
   }
   return Condition() ? MakeAnInt() : MakeAnInt();
 }
 
 void b5() {
   if (Condition()) {
-    Throw(); // expected-error {{You must immediately return after calling this function}}
+    Throw(); // expected-error {{You must immediately return after calling this
+             // function}}
   }
   DoAnythingElse();
 }
 
 void b6() {
   if (Condition()) {
-    Throw(); // expected-error {{You must immediately return after calling this function}}
+    Throw(); // expected-error {{You must immediately return after calling this
+             // function}}
     DoAnythingElse();
   }
 }
@@ -114,7 +123,8 @@ void b7() {
 
 void b8() {
   if (Condition()) {
-    Throw(); // expected-error {{You must immediately return after calling this function}}
+    Throw(); // expected-error {{You must immediately return after calling this
+             // function}}
     DoAnythingElse();
     return;
   }
@@ -123,7 +133,8 @@ void b8() {
 
 void b9() {
   while (Condition()) {
-    Throw(); // expected-error {{You must immediately return after calling this function}}
+    Throw(); // expected-error {{You must immediately return after calling this
+             // function}}
   }
 }
 
@@ -135,7 +146,8 @@ void b10() {
 }
 
 void b11() {
-  Throw(); // expected-error {{You must immediately return after calling this function}}
+  Throw(); // expected-error {{You must immediately return after calling this
+           // function}}
   if (Condition()) {
     return;
   } else {

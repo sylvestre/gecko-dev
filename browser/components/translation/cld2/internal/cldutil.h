@@ -30,51 +30,69 @@ namespace CLD2 {
 // Score up to 64KB of a single script span in one pass
 // Make a dummy entry off the end to calc length of last span
 // Return offset of first unused input byte
-int GetUniHits(const char* text,
-                     int letter_offset, int letter_limit,
-                     ScoringContext* scoringcontext,
-                     ScoringHitBuffer* hitbuffer);
+int
+GetUniHits(const char* text,
+           int letter_offset,
+           int letter_limit,
+           ScoringContext* scoringcontext,
+           ScoringHitBuffer* hitbuffer);
 
 // Score up to 64KB of a single script span, doing both delta-bi and
 // distinct bis in one pass
-void GetBiHits(const char* text,
-                     int letter_offset, int letter_limit,
-                     ScoringContext* scoringcontext,
-                     ScoringHitBuffer* hitbuffer);
+void
+GetBiHits(const char* text,
+          int letter_offset,
+          int letter_limit,
+          ScoringContext* scoringcontext,
+          ScoringHitBuffer* hitbuffer);
 
 // Score up to 64KB of a single script span in one pass
 // Make a dummy entry off the end to calc length of last span
 // Return offset of first unused input byte
-int GetQuadHits(const char* text,
-                     int letter_offset, int letter_limit,
-                     ScoringContext* scoringcontext,
-                     ScoringHitBuffer* hitbuffer);
+int
+GetQuadHits(const char* text,
+            int letter_offset,
+            int letter_limit,
+            ScoringContext* scoringcontext,
+            ScoringHitBuffer* hitbuffer);
 
 // Score up to 64KB of a single script span, doing both delta-octa and
 // distinct words in one pass
-void GetOctaHits(const char* text,
-                     int letter_offset, int letter_limit,
-                     ScoringContext* scoringcontext,
-                     ScoringHitBuffer* hitbuffer);
+void
+GetOctaHits(const char* text,
+            int letter_offset,
+            int letter_limit,
+            ScoringContext* scoringcontext,
+            ScoringHitBuffer* hitbuffer);
 
 // Not sure if these belong here or in scoreonescriptspan.cc
-int ReliabilityDelta(int value1, int value2, int gramcount);
-int ReliabilityExpected(int actual_score_1kb, int expected_score_1kb);
+int
+ReliabilityDelta(int value1, int value2, int gramcount);
+int
+ReliabilityExpected(int actual_score_1kb, int expected_score_1kb);
 
 // Create a langprob packed value from its parts.
-uint32 MakeLangProb(Language lang, int qprob);
+uint32
+MakeLangProb(Language lang, int qprob);
 
-
-void ProcessProbV2Tote(uint32 probs, Tote* tote);
+void
+ProcessProbV2Tote(uint32 probs, Tote* tote);
 
 // Return score for a particular per-script language, or zero
-int GetLangScore(uint32 probs, uint8 pslang);
+int
+GetLangScore(uint32 probs, uint8 pslang);
 
-static inline int minint(int a, int b) {return (a < b) ? a: b;}
-static inline int maxint(int a, int b) {return (a > b) ? a: b;}
+static inline int
+minint(int a, int b)
+{
+  return (a < b) ? a : b;
+}
+static inline int
+maxint(int a, int b)
+{
+  return (a > b) ? a : b;
+}
 
-}       // End namespace CLD2
+}  // End namespace CLD2
 
 #endif  // I18N_ENCODINGS_CLD2_INTERNAL_NEW_CLDUTIL_H__
-
-

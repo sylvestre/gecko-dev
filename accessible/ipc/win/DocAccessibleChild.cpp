@@ -18,9 +18,9 @@ namespace a11y {
 static StaticAutoPtr<PlatformChild> sPlatformChild;
 
 DocAccessibleChild::DocAccessibleChild(DocAccessible* aDoc, IProtocol* aManager)
-  : DocAccessibleChildBase(aDoc)
-  , mEmulatedWindowHandle(nullptr)
-  , mIsRemoteConstructed(false)
+    : DocAccessibleChildBase(aDoc),
+      mEmulatedWindowHandle(nullptr),
+      mIsRemoteConstructed(false)
 {
   MOZ_COUNT_CTOR_INHERITED(DocAccessibleChild, DocAccessibleChildBase);
   if (!sPlatformChild) {
@@ -65,14 +65,15 @@ DocAccessibleChild::RecvParentCOMProxy(const IDispatchHolder& aParentCOMProxy)
 }
 
 ipc::IPCResult
-DocAccessibleChild::RecvEmulatedWindow(const WindowsHandle& aEmulatedWindowHandle,
-                                       const IDispatchHolder& aEmulatedWindowCOMProxy)
+DocAccessibleChild::RecvEmulatedWindow(
+    const WindowsHandle& aEmulatedWindowHandle,
+    const IDispatchHolder& aEmulatedWindowCOMProxy)
 {
   mEmulatedWindowHandle = reinterpret_cast<HWND>(aEmulatedWindowHandle);
   if (!aEmulatedWindowCOMProxy.IsNull()) {
     MOZ_ASSERT(!mEmulatedWindowProxy);
     mEmulatedWindowProxy.reset(
-      const_cast<IDispatchHolder&>(aEmulatedWindowCOMProxy).Release());
+        const_cast<IDispatchHolder&>(aEmulatedWindowCOMProxy).Release());
   }
 
   return IPC_OK();
@@ -103,8 +104,8 @@ DocAccessibleChild::PushDeferredEvent(UniquePtr<DeferredEvent> aEvent)
       return;
     }
 
-    topLevelIPCDoc =
-      static_cast<DocAccessibleChild*>(tabChild->GetTopLevelDocAccessibleChild());
+    topLevelIPCDoc = static_cast<DocAccessibleChild*>(
+        tabChild->GetTopLevelDocAccessibleChild());
   }
 
   if (topLevelIPCDoc) {
@@ -155,8 +156,8 @@ DocAccessibleChild::SendStateChangeEvent(const uint64_t& aID,
     return PDocAccessibleChild::SendStateChangeEvent(aID, aState, aEnabled);
   }
 
-  PushDeferredEvent(MakeUnique<SerializedStateChange>(this, aID, aState,
-                                                      aEnabled));
+  PushDeferredEvent(
+      MakeUnique<SerializedStateChange>(this, aID, aState, aEnabled));
   return true;
 }
 
@@ -216,8 +217,8 @@ DocAccessibleChild::SendCaretMoveEvent(const uint64_t& aID,
     return PDocAccessibleChild::SendCaretMoveEvent(aID, aCaretRect, aOffset);
   }
 
-  PushDeferredEvent(MakeUnique<SerializedCaretMove>(this, aID, aCaretRect,
-                                                    aOffset));
+  PushDeferredEvent(
+      MakeUnique<SerializedCaretMove>(this, aID, aCaretRect, aOffset));
   return true;
 }
 
@@ -234,16 +235,15 @@ DocAccessibleChild::SendTextChangeEvent(const uint64_t& aID,
     if (aDoSyncCheck && aStr.Contains(L'\xfffc')) {
       // The AT is going to need to reenter content while the event is being
       // dispatched synchronously.
-      return PDocAccessibleChild::SendSyncTextChangeEvent(aID, aStr, aStart,
-                                                          aLen, aIsInsert,
-                                                          aFromUser);
+      return PDocAccessibleChild::SendSyncTextChangeEvent(
+          aID, aStr, aStart, aLen, aIsInsert, aFromUser);
     }
-    return PDocAccessibleChild::SendTextChangeEvent(aID, aStr, aStart,
-                                                    aLen, aIsInsert, aFromUser);
+    return PDocAccessibleChild::SendTextChangeEvent(
+        aID, aStr, aStart, aLen, aIsInsert, aFromUser);
   }
 
-  PushDeferredEvent(MakeUnique<SerializedTextChange>(this, aID, aStr, aStart,
-                                                     aLen, aIsInsert, aFromUser));
+  PushDeferredEvent(MakeUnique<SerializedTextChange>(
+      this, aID, aStr, aStart, aLen, aIsInsert, aFromUser));
   return true;
 }
 
@@ -256,9 +256,8 @@ DocAccessibleChild::SendSelectionEvent(const uint64_t& aID,
     return PDocAccessibleChild::SendSelectionEvent(aID, aWidgetID, aType);
   }
 
-  PushDeferredEvent(MakeUnique<SerializedSelection>(this, aID,
-                                                                aWidgetID,
-                                                                aType));
+  PushDeferredEvent(
+      MakeUnique<SerializedSelection>(this, aID, aWidgetID, aType));
   return true;
 }
 
@@ -275,24 +274,22 @@ DocAccessibleChild::SendRoleChangedEvent(const uint32_t& aRole)
 
 bool
 DocAccessibleChild::ConstructChildDocInParentProcess(
-                                        DocAccessibleChild* aNewChildDoc,
-                                        uint64_t aUniqueID, uint32_t aMsaaID)
+    DocAccessibleChild* aNewChildDoc, uint64_t aUniqueID, uint32_t aMsaaID)
 {
   if (IsConstructedInParentProcess()) {
     // We may send the constructor immediately
     auto tabChild = static_cast<dom::TabChild*>(Manager());
     MOZ_ASSERT(tabChild);
-    bool result = tabChild->SendPDocAccessibleConstructor(aNewChildDoc, this,
-                                                          aUniqueID, aMsaaID,
-                                                          IAccessibleHolder());
+    bool result = tabChild->SendPDocAccessibleConstructor(
+        aNewChildDoc, this, aUniqueID, aMsaaID, IAccessibleHolder());
     if (result) {
       aNewChildDoc->SetConstructedInParentProcess();
     }
     return result;
   }
 
-  PushDeferredEvent(MakeUnique<SerializedChildDocConstructor>(aNewChildDoc, this,
-                                                              aUniqueID, aMsaaID));
+  PushDeferredEvent(MakeUnique<SerializedChildDocConstructor>(
+      aNewChildDoc, this, aUniqueID, aMsaaID));
   return true;
 }
 
@@ -304,8 +301,8 @@ DocAccessibleChild::SendBindChildDoc(DocAccessibleChild* aChildDoc,
     return DocAccessibleChildBase::SendBindChildDoc(aChildDoc, aNewParentID);
   }
 
-  PushDeferredEvent(MakeUnique<SerializedBindChildDoc>(this, aChildDoc,
-                                                       aNewParentID));
+  PushDeferredEvent(
+      MakeUnique<SerializedBindChildDoc>(this, aChildDoc, aNewParentID));
   return true;
 }
 
@@ -316,6 +313,5 @@ DocAccessibleChild::RecvRestoreFocus()
   return IPC_OK();
 }
 
-} // namespace a11y
-} // namespace mozilla
-
+}  // namespace a11y
+}  // namespace mozilla

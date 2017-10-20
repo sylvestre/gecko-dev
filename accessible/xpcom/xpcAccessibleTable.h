@@ -19,12 +19,15 @@ namespace a11y {
 class xpcAccessibleTable : public xpcAccessibleGeneric,
                            public nsIAccessibleTable
 {
-public:
-  explicit xpcAccessibleTable(Accessible* aIntl) :
-    xpcAccessibleGeneric(aIntl) { }
+ public:
+  explicit xpcAccessibleTable(Accessible* aIntl) : xpcAccessibleGeneric(aIntl)
+  {
+  }
 
-  xpcAccessibleTable(ProxyAccessible* aProxy, uint32_t aInterfaces) :
-    xpcAccessibleGeneric(aProxy, aInterfaces) {}
+  xpcAccessibleTable(ProxyAccessible* aProxy, uint32_t aInterfaces)
+      : xpcAccessibleGeneric(aProxy, aInterfaces)
+  {
+  }
 
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -33,44 +36,43 @@ public:
   NS_IMETHOD GetSummary(nsAString& aSummary) final override;
   NS_IMETHOD GetColumnCount(int32_t* aColumnCount) final override;
   NS_IMETHOD GetRowCount(int32_t* aRowCount) final override;
-  NS_IMETHOD GetCellAt(int32_t aRowIndex, int32_t aColumnIndex,
+  NS_IMETHOD GetCellAt(int32_t aRowIndex,
+                       int32_t aColumnIndex,
                        nsIAccessible** aCell) final override;
-  NS_IMETHOD GetCellIndexAt(int32_t aRowIndex, int32_t aColumnIndex,
+  NS_IMETHOD GetCellIndexAt(int32_t aRowIndex,
+                            int32_t aColumnIndex,
                             int32_t* aCellIndex) final override;
-  NS_IMETHOD GetColumnIndexAt(int32_t aCellIndex, int32_t* aColumnIndex)
-    final override;
-  NS_IMETHOD GetRowIndexAt(int32_t aCellIndex, int32_t* aRowIndex)
-    final override;
-  NS_IMETHOD GetRowAndColumnIndicesAt(int32_t aCellIndex, int32_t* aRowIndex,
-                                      int32_t* aColumnIndex)
-    final override;
-  NS_IMETHOD GetColumnExtentAt(int32_t row, int32_t column,
+  NS_IMETHOD GetColumnIndexAt(int32_t aCellIndex,
+                              int32_t* aColumnIndex) final override;
+  NS_IMETHOD GetRowIndexAt(int32_t aCellIndex,
+                           int32_t* aRowIndex) final override;
+  NS_IMETHOD GetRowAndColumnIndicesAt(int32_t aCellIndex,
+                                      int32_t* aRowIndex,
+                                      int32_t* aColumnIndex) final override;
+  NS_IMETHOD GetColumnExtentAt(int32_t row,
+                               int32_t column,
                                int32_t* aColumnExtent) final override;
-  NS_IMETHOD GetRowExtentAt(int32_t row, int32_t column,
+  NS_IMETHOD GetRowExtentAt(int32_t row,
+                            int32_t column,
                             int32_t* aRowExtent) final override;
-  NS_IMETHOD GetColumnDescription(int32_t aColIdx, nsAString& aDescription)
-    final override;
-  NS_IMETHOD GetRowDescription(int32_t aRowIdx, nsAString& aDescription)
-    final override;
-  NS_IMETHOD IsColumnSelected(int32_t aColIdx, bool* _retval)
-    final override;
-  NS_IMETHOD IsRowSelected(int32_t aRowIdx, bool* _retval)
-    final override;
-  NS_IMETHOD IsCellSelected(int32_t aRowIdx, int32_t aColIdx, bool* _retval)
-    final override;
-  NS_IMETHOD GetSelectedCellCount(uint32_t* aSelectedCellCount)
-    final override;
-  NS_IMETHOD GetSelectedColumnCount(uint32_t* aSelectedColumnCount)
-    final override;
-  NS_IMETHOD GetSelectedRowCount(uint32_t* aSelectedRowCount)
-    final override;
+  NS_IMETHOD GetColumnDescription(int32_t aColIdx,
+                                  nsAString& aDescription) final override;
+  NS_IMETHOD GetRowDescription(int32_t aRowIdx,
+                               nsAString& aDescription) final override;
+  NS_IMETHOD IsColumnSelected(int32_t aColIdx, bool* _retval) final override;
+  NS_IMETHOD IsRowSelected(int32_t aRowIdx, bool* _retval) final override;
+  NS_IMETHOD IsCellSelected(int32_t aRowIdx,
+                            int32_t aColIdx,
+                            bool* _retval) final override;
+  NS_IMETHOD GetSelectedCellCount(uint32_t* aSelectedCellCount) final override;
+  NS_IMETHOD GetSelectedColumnCount(
+      uint32_t* aSelectedColumnCount) final override;
+  NS_IMETHOD GetSelectedRowCount(uint32_t* aSelectedRowCount) final override;
   NS_IMETHOD GetSelectedCells(nsIArray** aSelectedCell) final override;
   NS_IMETHOD GetSelectedCellIndices(uint32_t* aCellsArraySize,
-                                    int32_t** aCellsArray)
-    final override;
+                                    int32_t** aCellsArray) final override;
   NS_IMETHOD GetSelectedColumnIndices(uint32_t* aColsArraySize,
-                                      int32_t** aColsArray)
-    final override;
+                                      int32_t** aColsArray) final override;
   NS_IMETHOD GetSelectedRowIndices(uint32_t* aRowsArraySize,
                                    int32_t** aRowsArray) final override;
   NS_IMETHOD SelectColumn(int32_t aColIdx) final override;
@@ -79,18 +81,20 @@ public:
   NS_IMETHOD UnselectRow(int32_t aRowIdx) final override;
   NS_IMETHOD IsProbablyForLayout(bool* aIsForLayout) final override;
 
-protected:
+ protected:
   virtual ~xpcAccessibleTable() {}
 
-private:
+ private:
   TableAccessible* Intl()
-  { return mIntl.IsAccessible() ? mIntl.AsAccessible()->AsTable() : nullptr; }
+  {
+    return mIntl.IsAccessible() ? mIntl.AsAccessible()->AsTable() : nullptr;
+  }
 
   xpcAccessibleTable(const xpcAccessibleTable&) = delete;
-  xpcAccessibleTable& operator =(const xpcAccessibleTable&) = delete;
+  xpcAccessibleTable& operator=(const xpcAccessibleTable&) = delete;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_xpcAccessibleTable_h_
+#endif  // mozilla_a11y_xpcAccessibleTable_h_

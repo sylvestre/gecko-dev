@@ -16,7 +16,7 @@ namespace a11y {
  */
 class HTMLCanvasAccessible : public HyperTextAccessibleWrap
 {
-public:
+ public:
   HTMLCanvasAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // nsISupports
@@ -25,11 +25,11 @@ public:
   // Accessible
   virtual a11y::role NativeRole() override;
 
-protected:
-  virtual ~HTMLCanvasAccessible() { }
+ protected:
+  virtual ~HTMLCanvasAccessible() {}
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

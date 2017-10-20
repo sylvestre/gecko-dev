@@ -54,7 +54,7 @@ HTMLCheckboxAccessible::ActionCount()
 void
 HTMLCheckboxAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 {
-  if (aIndex == eAction_Click) {    // 0 is the magic value for default action
+  if (aIndex == eAction_Click) {  // 0 is the magic value for default action
     uint64_t state = NativeState();
     if (state & states::CHECKED)
       aName.AssignLiteral("uncheck");
@@ -68,8 +68,7 @@ HTMLCheckboxAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 bool
 HTMLCheckboxAccessible::DoAction(uint8_t aIndex)
 {
-  if (aIndex != 0)
-    return false;
+  if (aIndex != 0) return false;
 
   DoCommand();
   return true;
@@ -82,14 +81,11 @@ HTMLCheckboxAccessible::NativeState()
 
   state |= states::CHECKABLE;
   HTMLInputElement* input = HTMLInputElement::FromContent(mContent);
-  if (!input)
-    return state;
+  if (!input) return state;
 
-  if (input->Indeterminate())
-    return state | states::MIXED;
+  if (input->Indeterminate()) return state | states::MIXED;
 
-  if (input->Checked())
-    return state | states::CHECKED;
+  if (input->Checked()) return state | states::CHECKED;
 
   return state;
 }
@@ -103,7 +99,6 @@ HTMLCheckboxAccessible::IsWidget() const
   return true;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLRadioButtonAccessible
 ////////////////////////////////////////////////////////////////////////////////
@@ -116,8 +111,7 @@ HTMLRadioButtonAccessible::NativeState()
   state |= states::CHECKABLE;
 
   HTMLInputElement* input = HTMLInputElement::FromContent(mContent);
-  if (input && input->Checked())
-    state |= states::CHECKED;
+  if (input && input->Checked()) state |= states::CHECKED;
 
   return state;
 }
@@ -153,13 +147,13 @@ HTMLRadioButtonAccessible::GetPositionAndSizeInternal(int32_t* aPosInSet,
 
   for (uint32_t index = 0; index < inputCount; index++) {
     nsIContent* inputElm = inputElms->Item(index, false);
-    if (inputElm->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
-                              type, eCaseMatters) &&
-        inputElm->AttrValueIs(kNameSpaceID_None, nsGkAtoms::name,
-                              name, eCaseMatters) && mDoc->HasAccessible(inputElm)) {
-        count++;
-      if (inputElm == mContent)
-        indexOf = count;
+    if (inputElm->AttrValueIs(
+            kNameSpaceID_None, nsGkAtoms::type, type, eCaseMatters) &&
+        inputElm->AttrValueIs(
+            kNameSpaceID_None, nsGkAtoms::name, name, eCaseMatters) &&
+        mDoc->HasAccessible(inputElm)) {
+      count++;
+      if (inputElm == mContent) indexOf = count;
     }
   }
 
@@ -171,9 +165,9 @@ HTMLRadioButtonAccessible::GetPositionAndSizeInternal(int32_t* aPosInSet,
 // HTMLButtonAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLButtonAccessible::
-  HTMLButtonAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLButtonAccessible::HTMLButtonAccessible(nsIContent* aContent,
+                                           DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
   mGenericTypes |= eButton;
 }
@@ -187,15 +181,13 @@ HTMLButtonAccessible::ActionCount()
 void
 HTMLButtonAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 {
-  if (aIndex == eAction_Click)
-    aName.AssignLiteral("press");
+  if (aIndex == eAction_Click) aName.AssignLiteral("press");
 }
 
 bool
 HTMLButtonAccessible::DoAction(uint8_t aIndex)
 {
-  if (aIndex != eAction_Click)
-    return false;
+  if (aIndex != eAction_Click) return false;
 
   DoCommand();
   return true;
@@ -205,16 +197,15 @@ uint64_t
 HTMLButtonAccessible::State()
 {
   uint64_t state = HyperTextAccessibleWrap::State();
-  if (state == states::DEFUNCT)
-    return state;
+  if (state == states::DEFUNCT) return state;
 
   // Inherit states from input@type="file" suitable for the button. Note,
   // no special processing for unavailable state since inheritance is supplied
   // other code paths.
   if (mParent && mParent->IsHTMLFileInput()) {
     uint64_t parentState = mParent->State();
-    state |= parentState & (states::BUSY | states::REQUIRED |
-                            states::HASPOPUP | states::INVALID);
+    state |= parentState & (states::BUSY | states::REQUIRED | states::HASPOPUP |
+                            states::INVALID);
   }
 
   return state;
@@ -226,8 +217,7 @@ HTMLButtonAccessible::NativeState()
   uint64_t state = HyperTextAccessibleWrap::NativeState();
 
   EventStates elmState = mContent->AsElement()->State();
-  if (elmState.HasState(NS_EVENT_STATE_DEFAULT))
-    state |= states::DEFAULT;
+  if (elmState.HasState(NS_EVENT_STATE_DEFAULT)) state |= states::DEFAULT;
 
   return state;
 }
@@ -252,8 +242,8 @@ HTMLButtonAccessible::NativeName(nsString& aName)
 
   ENameValueFlag nameFlag = Accessible::NativeName(aName);
   if (!aName.IsEmpty() || !mContent->IsHTMLElement(nsGkAtoms::input) ||
-      !mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
-                             nsGkAtoms::image, eCaseMatters))
+      !mContent->AttrValueIs(
+          kNameSpaceID_None, nsGkAtoms::type, nsGkAtoms::image, eCaseMatters))
     return nameFlag;
 
   if (!mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::alt, aName))
@@ -272,26 +262,26 @@ HTMLButtonAccessible::IsWidget() const
   return true;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLTextFieldAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLTextFieldAccessible::
-  HTMLTextFieldAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLTextFieldAccessible::HTMLTextFieldAccessible(nsIContent* aContent,
+                                                 DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
   mType = eHTMLTextFieldType;
 }
 
-NS_IMPL_ISUPPORTS_INHERITED0(HTMLTextFieldAccessible,
-                             HyperTextAccessible)
+NS_IMPL_ISUPPORTS_INHERITED0(HTMLTextFieldAccessible, HyperTextAccessible)
 
 role
 HTMLTextFieldAccessible::NativeRole()
 {
-  if (mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
-                            nsGkAtoms::password, eIgnoreCase)) {
+  if (mContent->AttrValueIs(kNameSpaceID_None,
+                            nsGkAtoms::type,
+                            nsGkAtoms::password,
+                            eIgnoreCase)) {
     return roles::PASSWORD_TEXT;
   }
 
@@ -302,7 +292,7 @@ already_AddRefed<nsIPersistentProperties>
 HTMLTextFieldAccessible::NativeAttributes()
 {
   nsCOMPtr<nsIPersistentProperties> attributes =
-    HyperTextAccessibleWrap::NativeAttributes();
+      HyperTextAccessibleWrap::NativeAttributes();
 
   // Expose type for text input elements as it gives some useful context,
   // especially for mobile.
@@ -310,8 +300,8 @@ HTMLTextFieldAccessible::NativeAttributes()
   if (mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::type, type)) {
     nsAccUtils::SetAccAttr(attributes, nsGkAtoms::textInputType, type);
     if (!ARIARoleMap() && type.EqualsLiteral("search")) {
-      nsAccUtils::SetAccAttr(attributes, nsGkAtoms::xmlroles,
-                             NS_LITERAL_STRING("searchbox"));
+      nsAccUtils::SetAccAttr(
+          attributes, nsGkAtoms::xmlroles, NS_LITERAL_STRING("searchbox"));
     }
   }
 
@@ -322,16 +312,13 @@ ENameValueFlag
 HTMLTextFieldAccessible::NativeName(nsString& aName)
 {
   ENameValueFlag nameFlag = Accessible::NativeName(aName);
-  if (!aName.IsEmpty())
-    return nameFlag;
+  if (!aName.IsEmpty()) return nameFlag;
 
   // If part of compound of XUL widget then grab a name from XUL widget element.
   nsIContent* widgetElm = XULWidgetElm();
-  if (widgetElm)
-    XULElmName(mDoc, widgetElm, aName);
+  if (widgetElm) XULElmName(mDoc, widgetElm, aName);
 
-  if (!aName.IsEmpty())
-    return eNameOK;
+  if (!aName.IsEmpty()) return eNameOK;
 
   // text inputs and textareas might have useful placeholder text
   mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::placeholder, aName);
@@ -342,7 +329,7 @@ void
 HTMLTextFieldAccessible::Value(nsString& aValue)
 {
   aValue.Truncate();
-  if (NativeState() & states::PROTECTED)    // Don't return password text!
+  if (NativeState() & states::PROTECTED)  // Don't return password text!
     return;
 
   nsCOMPtr<nsIDOMHTMLTextAreaElement> textArea(do_QueryInterface(mContent));
@@ -382,8 +369,10 @@ HTMLTextFieldAccessible::NativeState()
   state |= states::EDITABLE;
 
   // can be focusable, focused, protected. readonly, unavailable, selected
-  if (mContent->AttrValueIs(kNameSpaceID_None, nsGkAtoms::type,
-                            nsGkAtoms::password, eIgnoreCase)) {
+  if (mContent->AttrValueIs(kNameSpaceID_None,
+                            nsGkAtoms::type,
+                            nsGkAtoms::password,
+                            eIgnoreCase)) {
     state |= states::PROTECTED;
   }
 
@@ -393,8 +382,8 @@ HTMLTextFieldAccessible::NativeState()
 
   // Is it an <input> or a <textarea> ?
   HTMLInputElement* input = HTMLInputElement::FromContent(mContent);
-  state |= input && input->IsSingleLineTextControl() ?
-    states::SINGLE_LINE : states::MULTI_LINE;
+  state |= input && input->IsSingleLineTextControl() ? states::SINGLE_LINE
+                                                     : states::MULTI_LINE;
 
   if (state & (states::PROTECTED | states::MULTI_LINE | states::READONLY |
                states::UNAVAILABLE))
@@ -402,7 +391,7 @@ HTMLTextFieldAccessible::NativeState()
 
   // Expose autocomplete states if this input is part of autocomplete widget.
   Accessible* widget = ContainerWidget();
-  if (widget && widget-IsAutoComplete()) {
+  if (widget && widget - IsAutoComplete()) {
     state |= states::HASPOPUP | states::SUPPORTS_AUTOCOMPLETION;
     return state;
   }
@@ -419,14 +408,13 @@ HTMLTextFieldAccessible::NativeState()
     // we're talking here is based on what the user types, where a popup of
     // possible choices comes up.
     nsAutoString autocomplete;
-    mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::autocomplete,
-                      autocomplete);
+    mContent->GetAttr(kNameSpaceID_None, nsGkAtoms::autocomplete, autocomplete);
 
     if (!autocomplete.LowerCaseEqualsLiteral("off")) {
       nsIContent* formContent = input->GetFormElement();
       if (formContent) {
-        formContent->GetAttr(kNameSpaceID_None,
-                             nsGkAtoms::autocomplete, autocomplete);
+        formContent->GetAttr(
+            kNameSpaceID_None, nsGkAtoms::autocomplete, autocomplete);
       }
 
       if (!formContent || !autocomplete.LowerCaseEqualsLiteral("off"))
@@ -446,15 +434,13 @@ HTMLTextFieldAccessible::ActionCount()
 void
 HTMLTextFieldAccessible::ActionNameAt(uint8_t aIndex, nsAString& aName)
 {
-  if (aIndex == eAction_Click)
-    aName.AssignLiteral("activate");
+  if (aIndex == eAction_Click) aName.AssignLiteral("activate");
 }
 
 bool
 HTMLTextFieldAccessible::DoAction(uint8_t aIndex)
 {
-  if (aIndex != 0)
-    return false;
+  if (aIndex != 0) return false;
 
   TakeFocus();
   return true;
@@ -464,7 +450,7 @@ already_AddRefed<TextEditor>
 HTMLTextFieldAccessible::GetEditor() const
 {
   nsCOMPtr<nsITextControlElement> textControlElement =
-    do_QueryInterface(mContent);
+      do_QueryInterface(mContent);
   if (!textControlElement) {
     return nullptr;
   }
@@ -490,14 +476,13 @@ HTMLTextFieldAccessible::ContainerWidget() const
   return mParent;
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLFileInputAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLFileInputAccessible::
-HTMLFileInputAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLFileInputAccessible::HTMLFileInputAccessible(nsIContent* aContent,
+                                                 DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
   mType = eHTMLFileInputType;
 }
@@ -520,23 +505,23 @@ HTMLFileInputAccessible::HandleAccEvent(AccEvent* aEvent)
   // unavailable state is not redirected. That's a standard for unavailable
   // state handling.
   AccStateChangeEvent* event = downcast_accEvent(aEvent);
-  if (event &&
-      (event->GetState() == states::BUSY ||
-       event->GetState() == states::REQUIRED ||
-       event->GetState() == states::HASPOPUP ||
-       event->GetState() == states::INVALID)) {
+  if (event && (event->GetState() == states::BUSY ||
+                event->GetState() == states::REQUIRED ||
+                event->GetState() == states::HASPOPUP ||
+                event->GetState() == states::INVALID)) {
     Accessible* button = GetChildAt(0);
     if (button && button->Role() == roles::PUSHBUTTON) {
       RefPtr<AccStateChangeEvent> childEvent =
-        new AccStateChangeEvent(button, event->GetState(),
-                                event->IsStateEnabled(), event->FromUserInput());
+          new AccStateChangeEvent(button,
+                                  event->GetState(),
+                                  event->IsStateEnabled(),
+                                  event->FromUserInput());
       nsEventShell::FireEvent(childEvent);
     }
   }
 
   return NS_OK;
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLSpinnerAccessible
@@ -552,8 +537,7 @@ void
 HTMLSpinnerAccessible::Value(nsString& aValue)
 {
   AccessibleWrap::Value(aValue);
-  if (!aValue.IsEmpty())
-    return;
+  if (!aValue.IsEmpty()) return;
 
   // Pass NonSystem as the caller type, to be safe.  We don't expect to have a
   // file input here.
@@ -565,19 +549,16 @@ double
 HTMLSpinnerAccessible::MaxValue() const
 {
   double value = AccessibleWrap::MaxValue();
-  if (!IsNaN(value))
-    return value;
+  if (!IsNaN(value)) return value;
 
   return HTMLInputElement::FromContent(mContent)->GetMaximum().toDouble();
 }
-
 
 double
 HTMLSpinnerAccessible::MinValue() const
 {
   double value = AccessibleWrap::MinValue();
-  if (!IsNaN(value))
-    return value;
+  if (!IsNaN(value)) return value;
 
   return HTMLInputElement::FromContent(mContent)->GetMinimum().toDouble();
 }
@@ -586,8 +567,7 @@ double
 HTMLSpinnerAccessible::Step() const
 {
   double value = AccessibleWrap::Step();
-  if (!IsNaN(value))
-    return value;
+  if (!IsNaN(value)) return value;
 
   return HTMLInputElement::FromContent(mContent)->GetStep().toDouble();
 }
@@ -596,10 +576,11 @@ double
 HTMLSpinnerAccessible::CurValue() const
 {
   double value = AccessibleWrap::CurValue();
-  if (!IsNaN(value))
-    return value;
+  if (!IsNaN(value)) return value;
 
-  return HTMLInputElement::FromContent(mContent)->GetValueAsDecimal().toDouble();
+  return HTMLInputElement::FromContent(mContent)
+      ->GetValueAsDecimal()
+      .toDouble();
 }
 
 bool
@@ -609,7 +590,6 @@ HTMLSpinnerAccessible::SetCurValue(double aValue)
   HTMLInputElement::FromContent(mContent)->SetValueAsNumber(aValue, er);
   return !er.Failed();
 }
-
 
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLRangeAccessible
@@ -631,8 +611,7 @@ void
 HTMLRangeAccessible::Value(nsString& aValue)
 {
   LeafAccessible::Value(aValue);
-  if (!aValue.IsEmpty())
-    return;
+  if (!aValue.IsEmpty()) return;
 
   // Pass NonSystem as the caller type, to be safe.  We don't expect to have a
   // file input here.
@@ -644,8 +623,7 @@ double
 HTMLRangeAccessible::MaxValue() const
 {
   double value = LeafAccessible::MaxValue();
-  if (!IsNaN(value))
-    return value;
+  if (!IsNaN(value)) return value;
 
   return HTMLInputElement::FromContent(mContent)->GetMaximum().toDouble();
 }
@@ -654,8 +632,7 @@ double
 HTMLRangeAccessible::MinValue() const
 {
   double value = LeafAccessible::MinValue();
-  if (!IsNaN(value))
-    return value;
+  if (!IsNaN(value)) return value;
 
   return HTMLInputElement::FromContent(mContent)->GetMinimum().toDouble();
 }
@@ -664,8 +641,7 @@ double
 HTMLRangeAccessible::Step() const
 {
   double value = LeafAccessible::Step();
-  if (!IsNaN(value))
-    return value;
+  if (!IsNaN(value)) return value;
 
   return HTMLInputElement::FromContent(mContent)->GetStep().toDouble();
 }
@@ -674,10 +650,11 @@ double
 HTMLRangeAccessible::CurValue() const
 {
   double value = LeafAccessible::CurValue();
-  if (!IsNaN(value))
-    return value;
+  if (!IsNaN(value)) return value;
 
-  return HTMLInputElement::FromContent(mContent)->GetValueAsDecimal().toDouble();
+  return HTMLInputElement::FromContent(mContent)
+      ->GetValueAsDecimal()
+      .toDouble();
 }
 
 bool
@@ -688,14 +665,13 @@ HTMLRangeAccessible::SetCurValue(double aValue)
   return !er.Failed();
 }
 
-
 ////////////////////////////////////////////////////////////////////////////////
 // HTMLGroupboxAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLGroupboxAccessible::
-  HTMLGroupboxAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLGroupboxAccessible::HTMLGroupboxAccessible(nsIContent* aContent,
+                                               DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -724,8 +700,7 @@ ENameValueFlag
 HTMLGroupboxAccessible::NativeName(nsString& aName)
 {
   ENameValueFlag nameFlag = Accessible::NativeName(aName);
-  if (!aName.IsEmpty())
-    return nameFlag;
+  if (!aName.IsEmpty()) return nameFlag;
 
   nsIContent* legendContent = GetLegend();
   if (legendContent)
@@ -738,9 +713,8 @@ Relation
 HTMLGroupboxAccessible::RelationByType(RelationType aType)
 {
   Relation rel = HyperTextAccessibleWrap::RelationByType(aType);
-    // No override for label, so use <legend> for this <fieldset>
-  if (aType == RelationType::LABELLED_BY)
-    rel.AppendTarget(mDoc, GetLegend());
+  // No override for label, so use <legend> for this <fieldset>
+  if (aType == RelationType::LABELLED_BY) rel.AppendTarget(mDoc, GetLegend());
 
   return rel;
 }
@@ -749,9 +723,9 @@ HTMLGroupboxAccessible::RelationByType(RelationType aType)
 // HTMLLegendAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLLegendAccessible::
-  HTMLLegendAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLLegendAccessible::HTMLLegendAccessible(nsIContent* aContent,
+                                           DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -759,8 +733,7 @@ Relation
 HTMLLegendAccessible::RelationByType(RelationType aType)
 {
   Relation rel = HyperTextAccessibleWrap::RelationByType(aType);
-  if (aType != RelationType::LABEL_FOR)
-    return rel;
+  if (aType != RelationType::LABEL_FOR) return rel;
 
   Accessible* groupbox = Parent();
   if (groupbox && groupbox->Role() == roles::GROUPING)
@@ -773,9 +746,9 @@ HTMLLegendAccessible::RelationByType(RelationType aType)
 // HTMLFigureAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLFigureAccessible::
-  HTMLFigureAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLFigureAccessible::HTMLFigureAccessible(nsIContent* aContent,
+                                           DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -783,8 +756,7 @@ ENameValueFlag
 HTMLFigureAccessible::NativeName(nsString& aName)
 {
   ENameValueFlag nameFlag = HyperTextAccessibleWrap::NativeName(aName);
-  if (!aName.IsEmpty())
-    return nameFlag;
+  if (!aName.IsEmpty()) return nameFlag;
 
   nsIContent* captionContent = Caption();
   if (captionContent)
@@ -797,8 +769,7 @@ Relation
 HTMLFigureAccessible::RelationByType(RelationType aType)
 {
   Relation rel = HyperTextAccessibleWrap::RelationByType(aType);
-  if (aType == RelationType::LABELLED_BY)
-    rel.AppendTarget(mDoc, Caption());
+  if (aType == RelationType::LABELLED_BY) rel.AppendTarget(mDoc, Caption());
 
   return rel;
 }
@@ -821,9 +792,9 @@ HTMLFigureAccessible::Caption() const
 // HTMLFigcaptionAccessible
 ////////////////////////////////////////////////////////////////////////////////
 
-HTMLFigcaptionAccessible::
-  HTMLFigcaptionAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-  HyperTextAccessibleWrap(aContent, aDoc)
+HTMLFigcaptionAccessible::HTMLFigcaptionAccessible(nsIContent* aContent,
+                                                   DocAccessible* aDoc)
+    : HyperTextAccessibleWrap(aContent, aDoc)
 {
 }
 
@@ -831,13 +802,11 @@ Relation
 HTMLFigcaptionAccessible::RelationByType(RelationType aType)
 {
   Relation rel = HyperTextAccessibleWrap::RelationByType(aType);
-  if (aType != RelationType::LABEL_FOR)
-    return rel;
+  if (aType != RelationType::LABEL_FOR) return rel;
 
   Accessible* figure = Parent();
-  if (figure &&
-      figure->GetContent()->NodeInfo()->Equals(nsGkAtoms::figure,
-                                               mContent->GetNameSpaceID())) {
+  if (figure && figure->GetContent()->NodeInfo()->Equals(
+                    nsGkAtoms::figure, mContent->GetNameSpaceID())) {
     rel.AppendTarget(figure);
   }
 

@@ -13,8 +13,7 @@ using namespace mozilla::a11y;
 // HTMLTableAccessibleWrap
 ////////////////////////////////////////////////////////////////////////////////
 
-NS_IMPL_ISUPPORTS_INHERITED0(HTMLTableAccessibleWrap,
-                             HTMLTableAccessible)
+NS_IMPL_ISUPPORTS_INHERITED0(HTMLTableAccessibleWrap, HTMLTableAccessible)
 
 IMPL_IUNKNOWN_INHERITED1(HTMLTableAccessibleWrap,
                          AccessibleWrap,

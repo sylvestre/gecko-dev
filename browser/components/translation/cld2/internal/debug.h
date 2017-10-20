@@ -17,7 +17,6 @@
 //
 // Produces debugging output for CLD2. See debug_empty.h for suppressing this.
 
-
 #ifndef I18N_ENCODINGS_CLD2_INTERNAL_DEBUG_H_
 #define I18N_ENCODINGS_CLD2_INTERNAL_DEBUG_H_
 
@@ -27,32 +26,40 @@
 namespace CLD2 {
 
 // For showing one chunk
-void CLD2_Debug(const char* text,
-                int lo_offset,
-                int hi_offset,
-                bool more_to_come, bool score_cjk,
-                const ScoringHitBuffer* hitbuffer,
-                const ScoringContext* scoringcontext,
-                const ChunkSpan* cspan,
-                const ChunkSummary* chunksummary);
+void
+CLD2_Debug(const char* text,
+           int lo_offset,
+           int hi_offset,
+           bool more_to_come,
+           bool score_cjk,
+           const ScoringHitBuffer* hitbuffer,
+           const ScoringContext* scoringcontext,
+           const ChunkSpan* cspan,
+           const ChunkSummary* chunksummary);
 
 // For showing all chunks
-void CLD2_Debug2(const char* text,
-                 bool more_to_come, bool score_cjk,
-                 const ScoringHitBuffer* hitbuffer,
-                 const ScoringContext* scoringcontext,
-                 const SummaryBuffer* summarybuffer);
+void
+CLD2_Debug2(const char* text,
+            bool more_to_come,
+            bool score_cjk,
+            const ScoringHitBuffer* hitbuffer,
+            const ScoringContext* scoringcontext,
+            const SummaryBuffer* summarybuffer);
 
-std::string GetPlainEscapedText(const std::string& txt);
-std::string GetHtmlEscapedText(const std::string& txt);
-std::string GetColorHtmlEscapedText(Language lang, const std::string& txt);
-std::string GetLangColorHtmlEscapedText(Language lang, const std::string& txt);
+std::string
+GetPlainEscapedText(const std::string& txt);
+std::string
+GetHtmlEscapedText(const std::string& txt);
+std::string
+GetColorHtmlEscapedText(Language lang, const std::string& txt);
+std::string
+GetLangColorHtmlEscapedText(Language lang, const std::string& txt);
 
-void DumpResultChunkVector(FILE* f, const char* src,
-                           ResultChunkVector* resultchunkvector);
+void
+DumpResultChunkVector(FILE* f,
+                      const char* src,
+                      ResultChunkVector* resultchunkvector);
 
-
-}     // End namespace CLD2
+}  // End namespace CLD2
 
 #endif  // I18N_ENCODINGS_CLD2_INTERNAL_DEBUG_H_
-

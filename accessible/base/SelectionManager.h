@@ -43,7 +43,7 @@ struct SelData;
 
 class SelectionManager : public nsISelectionListener
 {
-public:
+ public:
   // nsISupports
   // implemented by derived nsAccessibilityService
 
@@ -89,8 +89,7 @@ public:
    */
   inline HyperTextAccessible* AccessibleWithCaret(int32_t* aCaret)
   {
-    if (aCaret)
-      *aCaret = mCaretOffset;
+    if (aCaret) *aCaret = mCaretOffset;
 
     return mAccWithCaret;
   }
@@ -110,8 +109,7 @@ public:
     mAccWithCaret = nullptr;
   }
 
-protected:
-
+ protected:
   SelectionManager();
 
   /**
@@ -119,7 +117,7 @@ protected:
    */
   void ProcessSelectionChanged(SelData* aSelData);
 
-private:
+ private:
   // Currently focused control.
   int32_t mCaretOffset;
   HyperTextAccessible* mAccWithCaret;
@@ -127,7 +125,7 @@ private:
   nsWeakPtr mCurrCtrlSpellSel;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

@@ -22,16 +22,19 @@ class xpcAccessibleHyperText : public xpcAccessibleGeneric,
                                public nsIAccessibleEditableText,
                                public nsIAccessibleHyperText
 {
-public:
-  explicit xpcAccessibleHyperText(Accessible* aIntl) :
-    xpcAccessibleGeneric(aIntl)
+ public:
+  explicit xpcAccessibleHyperText(Accessible* aIntl)
+      : xpcAccessibleGeneric(aIntl)
   {
     if (aIntl->IsHyperText() && aIntl->AsHyperText()->IsTextRole())
       mSupportedIfaces |= eText;
   }
 
-  xpcAccessibleHyperText(ProxyAccessible* aProxy, uint32_t aInterfaces) :
-    xpcAccessibleGeneric(aProxy, aInterfaces) { mSupportedIfaces |= eText; }
+  xpcAccessibleHyperText(ProxyAccessible* aProxy, uint32_t aInterfaces)
+      : xpcAccessibleGeneric(aProxy, aInterfaces)
+  {
+    mSupportedIfaces |= eText;
+  }
 
   NS_DECL_ISUPPORTS_INHERITED
 
@@ -39,10 +42,10 @@ public:
   NS_DECL_NSIACCESSIBLEHYPERTEXT
   NS_DECL_NSIACCESSIBLEEDITABLETEXT
 
-protected:
+ protected:
   virtual ~xpcAccessibleHyperText() {}
 
-private:
+ private:
   HyperTextAccessible* Intl()
   {
     if (Accessible* acc = mIntl.AsAccessible()) {
@@ -53,10 +56,10 @@ private:
   }
 
   xpcAccessibleHyperText(const xpcAccessibleHyperText&) = delete;
-  xpcAccessibleHyperText& operator =(const xpcAccessibleHyperText&) = delete;
+  xpcAccessibleHyperText& operator=(const xpcAccessibleHyperText&) = delete;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_xpcAccessibleHyperText_h_
+#endif  // mozilla_a11y_xpcAccessibleHyperText_h_

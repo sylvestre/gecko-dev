@@ -48,8 +48,7 @@ inline void
 DocAccessible::FireDelayedEvent(AccEvent* aEvent)
 {
 #ifdef A11Y_LOG
-  if (logging::IsEnabled(logging::eDocLoad))
-    logging::DocLoadEventFired(aEvent);
+  if (logging::IsEnabled(logging::eDocLoad)) logging::DocLoadEventFired(aEvent);
 #endif
 
   mNotificationController->QueueEvent(aEvent);
@@ -70,13 +69,14 @@ DocAccessible::BindChildDocument(DocAccessible* aDocument)
 
 template<class Class, class Arg>
 inline void
-DocAccessible::HandleNotification(Class* aInstance,
-                                  typename TNotification<Class, Arg>::Callback aMethod,
-                                  Arg* aArg)
+DocAccessible::HandleNotification(
+    Class* aInstance,
+    typename TNotification<Class, Arg>::Callback aMethod,
+    Arg* aArg)
 {
   if (mNotificationController) {
-    mNotificationController->HandleNotification<Class, Arg>(aInstance,
-                                                            aMethod, aArg);
+    mNotificationController->HandleNotification<Class, Arg>(
+        aInstance, aMethod, aArg);
   }
 }
 
@@ -94,8 +94,7 @@ inline void
 DocAccessible::AddScrollListener()
 {
   // Delay scroll initializing until the document has a root frame.
-  if (!mPresShell->GetRootFrame())
-    return;
+  if (!mPresShell->GetRootFrame()) return;
 
   mDocFlags |= eScrollInitialized;
   nsIScrollableFrame* sf = mPresShell->GetRootScrollFrameAsScrollable();
@@ -113,8 +112,7 @@ inline void
 DocAccessible::RemoveScrollListener()
 {
   nsIScrollableFrame* sf = mPresShell->GetRootScrollFrameAsScrollable();
-  if (sf)
-    sf->RemoveScrollPositionListener(this);
+  if (sf) sf->RemoveScrollPositionListener(this);
 }
 
 inline void
@@ -127,7 +125,7 @@ DocAccessible::NotifyOfLoad(uint32_t aLoadEventType)
   // caused by file loading. Fire busy state change event.
   if (HasLoadState(eCompletelyLoaded) && IsLoadEventTarget()) {
     RefPtr<AccEvent> stateEvent =
-      new AccStateChangeEvent(this, states::BUSY, false);
+        new AccStateChangeEvent(this, states::BUSY, false);
     FireDelayedEvent(stateEvent);
   }
 }
@@ -167,8 +165,7 @@ DocAccessible::CreateSubtree(Accessible* aChild)
     roles::Role role = aChild->ARIARole();
     if (role == roles::MENUPOPUP) {
       FireDelayedEvent(nsIAccessibleEvent::EVENT_MENUPOPUP_START, aChild);
-    }
-    else if (role == roles::ALERT) {
+    } else if (role == roles::ALERT) {
       FireDelayedEvent(nsIAccessibleEvent::EVENT_ALERT, aChild);
     }
   }
@@ -177,12 +174,12 @@ DocAccessible::CreateSubtree(Accessible* aChild)
   // account active item?
   if (focusedAcc) {
     FocusMgr()->DispatchFocusEvent(this, focusedAcc);
-    SelectionMgr()->
-      SetControlSelectionListener(focusedAcc->GetNode()->AsElement());
+    SelectionMgr()->SetControlSelectionListener(
+        focusedAcc->GetNode()->AsElement());
   }
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

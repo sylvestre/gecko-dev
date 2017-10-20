@@ -20,9 +20,12 @@ class HTMLListBulletAccessible;
  */
 class HTMLListAccessible : public HyperTextAccessibleWrap
 {
-public:
-  HTMLListAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    HyperTextAccessibleWrap(aContent, aDoc) { mGenericTypes |= eList; }
+ public:
+  HTMLListAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : HyperTextAccessibleWrap(aContent, aDoc)
+  {
+    mGenericTypes |= eList;
+  }
 
   // nsISupports
   NS_DECL_ISUPPORTS_INHERITED
@@ -31,17 +34,16 @@ public:
   virtual a11y::role NativeRole() override;
   virtual uint64_t NativeState() override;
 
-protected:
-  virtual ~HTMLListAccessible() { }
+ protected:
+  virtual ~HTMLListAccessible() {}
 };
-
 
 /**
  * Used for HTML list item (e.g. HTML li).
  */
 class HTMLLIAccessible : public HyperTextAccessibleWrap
 {
-public:
+ public:
   HTMLLIAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // nsISupports
@@ -59,29 +61,29 @@ public:
   HTMLListBulletAccessible* Bullet() const { return mBullet; }
   void UpdateBullet(bool aHasBullet);
 
-protected:
-  virtual ~HTMLLIAccessible() { }
+ protected:
+  virtual ~HTMLLIAccessible() {}
 
-private:
+ private:
   HTMLListBulletAccessible* mBullet;
 };
-
 
 /**
  * Used for bullet of HTML list item element (for example, HTML li).
  */
 class HTMLListBulletAccessible : public LeafAccessible
 {
-public:
+ public:
   HTMLListBulletAccessible(nsIContent* aContent, DocAccessible* aDoc);
-  virtual ~HTMLListBulletAccessible() { }
+  virtual ~HTMLListBulletAccessible() {}
 
   // Accessible
   virtual nsIFrame* GetFrame() const override;
   virtual ENameValueFlag Name(nsString& aName) override;
   virtual a11y::role NativeRole() override;
   virtual uint64_t NativeState() override;
-  virtual void AppendTextTo(nsAString& aText, uint32_t aStartOffset = 0,
+  virtual void AppendTextTo(nsAString& aText,
+                            uint32_t aStartOffset = 0,
                             uint32_t aLength = UINT32_MAX) override;
 
   // HTMLListBulletAccessible
@@ -92,14 +94,13 @@ public:
   bool IsInside() const;
 };
 
-
 inline HTMLLIAccessible*
 Accessible::AsHTMLListItem()
 {
   return IsHTMLListItem() ? static_cast<HTMLLIAccessible*>(this) : nullptr;
 }
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

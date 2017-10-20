@@ -16,7 +16,6 @@
 // Author: dsites@google.com (Dick Sites)
 //
 
-
 #ifndef I18N_ENCODINGS_CLD2_INTERNAL_CLD2TABLESUMMARY_H_
 #define I18N_ENCODINGS_CLD2_INTERNAL_CLD2TABLESUMMARY_H_
 
@@ -26,30 +25,29 @@ namespace CLD2 {
 
 // Hash bucket for four-way associative lookup, indirect probabilities
 // 16 bytes per bucket, 4-byte entries
-typedef struct {
-  uint32 keyvalue[4];   // Upper part of word is hash, lower is indirect prob
+typedef struct
+{
+  uint32 keyvalue[4];  // Upper part of word is hash, lower is indirect prob
 } IndirectProbBucket4;
-
 
 // Expanded version December 2012.
 // Moves cutoff for 6-language vs. 3-language indirects
 // Has list of recognized lang-script combinations
-typedef struct {
+typedef struct
+{
   const IndirectProbBucket4* kCLDTable;
-                                      // Each bucket has four entries, part
-                                      //  key and part indirect subscript
-  const uint32* kCLDTableInd;         // Each entry is three packed lang/prob
-  uint32 kCLDTableSizeOne;            // Indirect subscripts >= this: 2 entries
-  uint32 kCLDTableSize;               // Bucket count
-  uint32 kCLDTableKeyMask;            // Mask hash key
-  uint32 kCLDTableBuildDate;          // yyyymmdd
-  const char* kRecognizedLangScripts; // Character string of lang-Scripts
-                                      //  recognized: "en-Latn az-Arab ..."
-                                      //  Single space delimiter, Random order
+  // Each bucket has four entries, part
+  //  key and part indirect subscript
+  const uint32* kCLDTableInd;          // Each entry is three packed lang/prob
+  uint32 kCLDTableSizeOne;             // Indirect subscripts >= this: 2 entries
+  uint32 kCLDTableSize;                // Bucket count
+  uint32 kCLDTableKeyMask;             // Mask hash key
+  uint32 kCLDTableBuildDate;           // yyyymmdd
+  const char* kRecognizedLangScripts;  // Character string of lang-Scripts
+                                       //  recognized: "en-Latn az-Arab ..."
+                                       //  Single space delimiter, Random order
 } CLD2TableSummary;
 
-}       // End namespace CLD2
+}  // End namespace CLD2
 
 #endif  // I18N_ENCODINGS_CLD2_INTERNAL_CLD2TABLESUMMARY_H_
-
-

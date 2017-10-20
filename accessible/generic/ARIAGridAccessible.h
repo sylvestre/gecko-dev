@@ -16,10 +16,9 @@ namespace a11y {
 /**
  * Accessible for ARIA grid and treegrid.
  */
-class ARIAGridAccessible : public AccessibleWrap,
-                           public TableAccessible
+class ARIAGridAccessible : public AccessibleWrap, public TableAccessible
 {
-public:
+ public:
   ARIAGridAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -30,7 +29,8 @@ public:
   // TableAccessible
   virtual uint32_t ColCount() override;
   virtual uint32_t RowCount() override;
-  virtual Accessible* CellAt(uint32_t aRowIndex, uint32_t aColumnIndex) override;
+  virtual Accessible* CellAt(uint32_t aRowIndex,
+                             uint32_t aColumnIndex) override;
   virtual bool IsColSelected(uint32_t aColIdx) override;
   virtual bool IsRowSelected(uint32_t aRowIdx) override;
   virtual bool IsCellSelected(uint32_t aRowIdx, uint32_t aColIdx) override;
@@ -47,7 +47,7 @@ public:
   virtual void UnselectRow(uint32_t aRowIdx) override;
   virtual Accessible* AsAccessible() override { return this; }
 
-protected:
+ protected:
   virtual ~ARIAGridAccessible() {}
 
   /**
@@ -68,17 +68,17 @@ protected:
    * @param  aNotify      [in, optional] specifies if DOM should be notified
    *                       about attribute change (used internally).
    */
-  nsresult SetARIASelected(Accessible* aAccessible, bool aIsSelected,
+  nsresult SetARIASelected(Accessible* aAccessible,
+                           bool aIsSelected,
                            bool aNotify = true);
 };
-
 
 /**
  * Accessible for ARIA row.
  */
 class ARIARowAccessible : public AccessibleWrap
 {
-public:
+ public:
   ARIARowAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -86,10 +86,9 @@ public:
   // Accessible
   virtual mozilla::a11y::GroupPos GroupPosition() override;
 
-protected:
+ protected:
   virtual ~ARIARowAccessible() {}
 };
-
 
 /**
  * Accessible for ARIA gridcell and rowheader/columnheader.
@@ -97,7 +96,7 @@ protected:
 class ARIAGridCellAccessible : public HyperTextAccessibleWrap,
                                public TableCellAccessible
 {
-public:
+ public:
   ARIAGridCellAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -108,7 +107,7 @@ public:
   virtual already_AddRefed<nsIPersistentProperties> NativeAttributes() override;
   virtual mozilla::a11y::GroupPos GroupPosition() override;
 
-protected:
+ protected:
   virtual ~ARIAGridCellAccessible() {}
 
   /**
@@ -132,7 +131,7 @@ protected:
   virtual bool Selected() override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

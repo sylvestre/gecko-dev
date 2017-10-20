@@ -27,5 +27,4 @@ typedef signed long long int int64;
 
 typedef int32 char32;
 
-}       // End namespace CLD2
-
+}  // End namespace CLD2

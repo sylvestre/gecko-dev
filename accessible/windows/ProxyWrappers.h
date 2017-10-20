@@ -15,9 +15,9 @@ namespace a11y {
 
 class ProxyAccessibleWrap : public AccessibleWrap
 {
-public:
-  explicit ProxyAccessibleWrap(ProxyAccessible* aProxy) :
-    AccessibleWrap(nullptr, nullptr)
+ public:
+  explicit ProxyAccessibleWrap(ProxyAccessible* aProxy)
+      : AccessibleWrap(nullptr, nullptr)
   {
     mType = eProxyType;
     mBits.proxy = aProxy;
@@ -37,9 +37,9 @@ public:
 
 class HyperTextProxyAccessibleWrap : public HyperTextAccessibleWrap
 {
-public:
-  explicit HyperTextProxyAccessibleWrap(ProxyAccessible* aProxy) :
-    HyperTextAccessibleWrap(nullptr, nullptr)
+ public:
+  explicit HyperTextProxyAccessibleWrap(ProxyAccessible* aProxy)
+      : HyperTextAccessibleWrap(nullptr, nullptr)
   {
     mType = eProxyType;
     mBits.proxy = aProxy;
@@ -59,18 +59,24 @@ public:
 
 class DocProxyAccessibleWrap : public HyperTextProxyAccessibleWrap
 {
-public:
-  explicit DocProxyAccessibleWrap(ProxyAccessible* aProxy) :
-    HyperTextProxyAccessibleWrap(aProxy)
-  { mGenericTypes |= eDocument; }
+ public:
+  explicit DocProxyAccessibleWrap(ProxyAccessible* aProxy)
+      : HyperTextProxyAccessibleWrap(aProxy)
+  {
+    mGenericTypes |= eDocument;
+  }
 
   void AddID(uint32_t aID, AccessibleWrap* aAcc)
-    { mIDToAccessibleMap.Put(aID, aAcc); }
+  {
+    mIDToAccessibleMap.Put(aID, aAcc);
+  }
   void RemoveID(uint32_t aID) { mIDToAccessibleMap.Remove(aID); }
   AccessibleWrap* GetAccessibleByID(uint32_t aID) const
-    { return mIDToAccessibleMap.Get(aID); }
+  {
+    return mIDToAccessibleMap.Get(aID);
+  }
 
-private:
+ private:
   /*
    * This provides a mapping from 32 bit id to accessible objects.
    */
@@ -81,12 +87,13 @@ template<typename T>
 inline ProxyAccessible*
 HyperTextProxyFor(T* aWrapper)
 {
-  static_assert(mozilla::IsBaseOf<IUnknown, T>::value, "only IAccessible* should be passed in");
+  static_assert(mozilla::IsBaseOf<IUnknown, T>::value,
+                "only IAccessible* should be passed in");
   auto wrapper = static_cast<HyperTextProxyAccessibleWrap*>(aWrapper);
   return wrapper->IsProxy() ? wrapper->Proxy() : nullptr;
 }
 
-}
-}
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

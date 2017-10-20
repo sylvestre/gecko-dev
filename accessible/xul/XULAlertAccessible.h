@@ -17,7 +17,7 @@ namespace a11y {
 
 class XULAlertAccessible : public AccessibleWrap
 {
-public:
+ public:
   XULAlertAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   NS_DECL_ISUPPORTS_INHERITED
@@ -31,11 +31,11 @@ public:
   virtual bool IsWidget() const override;
   virtual Accessible* ContainerWidget() const override;
 
-protected:
+ protected:
   ~XULAlertAccessible();
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif

@@ -22,13 +22,12 @@ typedef RootAccessible RootAccessibleWrap;
  */
 class GtkWindowAccessible final : public DummyAccessible
 {
-public:
+ public:
   explicit GtkWindowAccessible(AtkObject* aAccessible);
   virtual ~GtkWindowAccessible();
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif   /* mozilla_a11y_Root_Accessible_Wrap_h__ */
-
+#endif /* mozilla_a11y_Root_Accessible_Wrap_h__ */

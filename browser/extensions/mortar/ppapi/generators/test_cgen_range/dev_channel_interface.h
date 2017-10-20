@@ -26,7 +26,6 @@
  * @file
  */
 
-
 /**
  * @addtogroup Interfaces
  * @{
@@ -34,7 +33,8 @@
 /**
  * TestDev
  */
-struct TestDev_1_3 { /* dev */
+struct TestDev_1_3
+{ /* dev */
   /**
    * TestDev1()
    */
@@ -53,11 +53,13 @@ struct TestDev_1_3 { /* dev */
   void (*TestDev4)(void);
 };
 
-struct TestDev_1_0 {
+struct TestDev_1_0
+{
   void (*TestDev1)(void);
 };
 
-struct TestDev_1_2 {
+struct TestDev_1_2
+{
   void (*TestDev1)(void);
   void (*TestDev3)(void);
 };
@@ -67,7 +69,8 @@ typedef struct TestDev_1_2 TestDev;
 /**
  * TestDevToStable
  */
-struct TestDevToStable_1_2 {
+struct TestDevToStable_1_2
+{
   /**
    * Foo() comment.
    */
@@ -84,11 +87,13 @@ struct TestDevToStable_1_2 {
 
 typedef struct TestDevToStable_1_2 TestDevToStable;
 
-struct TestDevToStable_1_0 {
+struct TestDevToStable_1_0
+{
   void (*Foo)(int32_t x);
 };
 
-struct TestDevToStable_1_1 { /* dev */
+struct TestDevToStable_1_1
+{ /* dev */
   void (*Foo)(int32_t x);
   void (*Bar)(int32_t x);
   void (*Baz)(int32_t x);
@@ -97,5 +102,4 @@ struct TestDevToStable_1_1 { /* dev */
  * @}
  */
 
-#endif  /* PPAPI_C_TEST_CGEN_RANGE_DEV_CHANNEL_INTERFACE_H_ */
-
+#endif /* PPAPI_C_TEST_CGEN_RANGE_DEV_CHANNEL_INTERFACE_H_ */

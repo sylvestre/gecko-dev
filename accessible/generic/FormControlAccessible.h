@@ -17,9 +17,9 @@ namespace a11y {
 template<int Max>
 class ProgressMeterAccessible : public LeafAccessible
 {
-public:
-  ProgressMeterAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    LeafAccessible(aContent, aDoc)
+ public:
+  ProgressMeterAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : LeafAccessible(aContent, aDoc)
   {
     // Ignore 'ValueChange' DOM event in lieu of @value attribute change
     // notifications.
@@ -42,7 +42,7 @@ public:
   // Widgets
   virtual bool IsWidget() const override;
 
-protected:
+ protected:
   virtual ~ProgressMeterAccessible() {}
 };
 
@@ -51,8 +51,7 @@ protected:
   */
 class RadioButtonAccessible : public LeafAccessible
 {
-
-public:
+ public:
   RadioButtonAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -63,14 +62,16 @@ public:
   virtual void ActionNameAt(uint8_t aIndex, nsAString& aName) override;
   virtual bool DoAction(uint8_t aIndex) override;
 
-  enum { eAction_Click = 0 };
+  enum
+  {
+    eAction_Click = 0
+  };
 
   // Widgets
   virtual bool IsWidget() const override;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
-

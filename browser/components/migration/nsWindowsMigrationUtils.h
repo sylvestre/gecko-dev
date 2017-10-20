@@ -7,8 +7,8 @@
 
 #include "prtime.h"
 
-static
-PRTime WinMigrationFileTimeToPRTime(FILETIME* filetime, bool* isValid)
+static PRTime
+WinMigrationFileTimeToPRTime(FILETIME* filetime, bool* isValid)
 {
   SYSTEMTIME st;
   *isValid = ::FileTimeToSystemTime(filetime, &st);
@@ -33,4 +33,3 @@ PRTime WinMigrationFileTimeToPRTime(FILETIME* filetime, bool* isValid)
 }
 
 #endif
-

@@ -23,13 +23,13 @@
  * This file will test that the IDL snippet matches the comment.
  */
 
-
 /**
  * @addtogroup Structs
  * @{
  */
 /* struct ist { void* X; }; */
-struct ist {
+struct ist
+{
   void* X;
 };
 /**
@@ -50,7 +50,8 @@ struct ist {
  * };
  * typedef struct ifaceFoo_1_0 ifaceFoo;
  */
-struct ifaceFoo_1_0 {
+struct ifaceFoo_1_0
+{
   int8_t (*mem1)(int16_t x, int32_t y);
   int32_t (*mem2)(const struct ist* a);
   int32_t (*mem3)(struct ist* b);
@@ -60,14 +61,16 @@ struct ifaceFoo_1_0 {
 
 typedef struct ifaceFoo_1_0 ifaceFoo;
 
-struct ifaceBar_1_0 {
+struct ifaceBar_1_0
+{
   int8_t (*testIface)(const struct ifaceFoo_1_0* foo, int32_t y);
   struct ifaceFoo_1_0* (*createIface)(const char* name);
 };
 
 typedef struct ifaceBar_1_0 ifaceBar;
 
-struct ifaceNoString_1_0 {
+struct ifaceNoString_1_0
+{
   void (*mem)(void);
 };
 
@@ -80,12 +83,12 @@ typedef struct ifaceNoString_1_0 ifaceNoString;
  * @addtogroup Structs
  * @{
  */
-struct struct2 {
+struct struct2
+{
   struct ifaceBar_1_0* bar;
 };
 /**
  * @}
  */
 
-#endif  /* PPAPI_C_TEST_CGEN_INTERFACE_H_ */
-
+#endif /* PPAPI_C_TEST_CGEN_INTERFACE_H_ */

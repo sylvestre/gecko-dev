@@ -7,16 +7,15 @@
 #include "ISimpleDOM.h"
 
 HRESULT STDMETHODCALLTYPE
-ISimpleDOMNode_get_localInterface_Proxy(ISimpleDOMNode * This,
-                                        void **localInterface)
+ISimpleDOMNode_get_localInterface_Proxy(ISimpleDOMNode* This,
+                                        void** localInterface)
 {
   return E_NOTIMPL;
 }
 
 HRESULT STDMETHODCALLTYPE
-ISimpleDOMNode_get_localInterface_Stub(ISimpleDOMNode * This,
-                                       IUnknown **localInterface)
+ISimpleDOMNode_get_localInterface_Stub(ISimpleDOMNode* This,
+                                       IUnknown** localInterface)
 {
   return E_NOTIMPL;
 }
-

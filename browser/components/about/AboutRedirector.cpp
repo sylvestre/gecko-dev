@@ -24,7 +24,8 @@ NS_IMPL_ISUPPORTS(AboutRedirector, nsIAboutModule)
 bool AboutRedirector::sActivityStreamEnabled = false;
 bool AboutRedirector::sActivityStreamAboutHomeEnabled = false;
 
-struct RedirEntry {
+struct RedirEntry
+{
   const char* id;
   const char* url;
   uint32_t flags;
@@ -39,84 +40,84 @@ struct RedirEntry {
   URI_SAFE_FOR_UNTRUSTED_CONTENT.
 */
 static const RedirEntry kRedirMap[] = {
-  { "blocked", "chrome://browser/content/blockedSite.xhtml",
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-    nsIAboutModule::URI_CAN_LOAD_IN_CHILD |
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
-  { "certerror", "chrome://browser/content/aboutNetError.xhtml",
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-    nsIAboutModule::URI_CAN_LOAD_IN_CHILD |
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
-  { "tabcrashed", "chrome://browser/content/aboutTabCrashed.xhtml",
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
-  { "feeds", "chrome://browser/content/feeds/subscribe.xhtml",
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
-  { "privatebrowsing", "chrome://browser/content/aboutPrivateBrowsing.xhtml",
-    nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
-    nsIAboutModule::ALLOW_SCRIPT },
-  { "rights",
-    "chrome://global/content/aboutRights.xhtml",
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-    nsIAboutModule::MAKE_LINKABLE |
-    nsIAboutModule::ALLOW_SCRIPT },
-  { "robots", "chrome://browser/content/aboutRobots.xhtml",
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-    nsIAboutModule::ALLOW_SCRIPT },
-  { "searchreset", "chrome://browser/content/search/searchReset.xhtml",
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
-  { "sessionrestore", "chrome://browser/content/aboutSessionRestore.xhtml",
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
-  { "welcomeback", "chrome://browser/content/aboutWelcomeBack.xhtml",
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
-  // Linkable because of indexeddb use (bug 1228118)
-  { "home", "chrome://browser/content/abouthome/aboutHome.xhtml",
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-    nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::MAKE_LINKABLE |
-    nsIAboutModule::ENABLE_INDEXED_DB },
-  // the newtab's actual URL will be determined when the channel is created
-  { "newtab", "about:blank",
-    nsIAboutModule::ALLOW_SCRIPT },
-  { "preferences", "chrome://browser/content/preferences/in-content/preferences.xul",
-    nsIAboutModule::ALLOW_SCRIPT },
-  { "downloads", "chrome://browser/content/downloads/contentAreaDownloadsView.xul",
-    nsIAboutModule::ALLOW_SCRIPT },
+    {"blocked",
+     "chrome://browser/content/blockedSite.xhtml",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::URI_CAN_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT |
+         nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"certerror",
+     "chrome://browser/content/aboutNetError.xhtml",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::URI_CAN_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT |
+         nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"tabcrashed",
+     "chrome://browser/content/aboutTabCrashed.xhtml",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"feeds",
+     "chrome://browser/content/feeds/subscribe.xhtml",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"privatebrowsing",
+     "chrome://browser/content/aboutPrivateBrowsing.xhtml",
+     nsIAboutModule::URI_MUST_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT},
+    {"rights",
+     "chrome://global/content/aboutRights.xhtml",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::MAKE_LINKABLE | nsIAboutModule::ALLOW_SCRIPT},
+    {"robots",
+     "chrome://browser/content/aboutRobots.xhtml",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::ALLOW_SCRIPT},
+    {"searchreset",
+     "chrome://browser/content/search/searchReset.xhtml",
+     nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"sessionrestore",
+     "chrome://browser/content/aboutSessionRestore.xhtml",
+     nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    {"welcomeback",
+     "chrome://browser/content/aboutWelcomeBack.xhtml",
+     nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::HIDE_FROM_ABOUTABOUT},
+    // Linkable because of indexeddb use (bug 1228118)
+    {"home",
+     "chrome://browser/content/abouthome/aboutHome.xhtml",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::URI_MUST_LOAD_IN_CHILD | nsIAboutModule::ALLOW_SCRIPT |
+         nsIAboutModule::MAKE_LINKABLE | nsIAboutModule::ENABLE_INDEXED_DB},
+    // the newtab's actual URL will be determined when the channel is created
+    {"newtab", "about:blank", nsIAboutModule::ALLOW_SCRIPT},
+    {"preferences",
+     "chrome://browser/content/preferences/in-content/preferences.xul",
+     nsIAboutModule::ALLOW_SCRIPT},
+    {"downloads",
+     "chrome://browser/content/downloads/contentAreaDownloadsView.xul",
+     nsIAboutModule::ALLOW_SCRIPT},
 #ifdef MOZ_SERVICES_HEALTHREPORT
-  { "healthreport", "chrome://browser/content/abouthealthreport/abouthealth.xhtml",
-    nsIAboutModule::ALLOW_SCRIPT },
+    {"healthreport",
+     "chrome://browser/content/abouthealthreport/abouthealth.xhtml",
+     nsIAboutModule::ALLOW_SCRIPT},
 #endif
-  { "accounts", "chrome://browser/content/aboutaccounts/aboutaccounts.xhtml",
-    nsIAboutModule::ALLOW_SCRIPT },
-  { "reader", "chrome://global/content/reader/aboutReader.html",
-    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
-    nsIAboutModule::ALLOW_SCRIPT |
-    nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
-    nsIAboutModule::HIDE_FROM_ABOUTABOUT },
+    {"accounts",
+     "chrome://browser/content/aboutaccounts/aboutaccounts.xhtml",
+     nsIAboutModule::ALLOW_SCRIPT},
+    {"reader",
+     "chrome://global/content/reader/aboutReader.html",
+     nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT |
+         nsIAboutModule::ALLOW_SCRIPT | nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
+         nsIAboutModule::HIDE_FROM_ABOUTABOUT},
 };
 
 static nsAutoCString
-GetAboutModuleName(nsIURI *aURI)
+GetAboutModuleName(nsIURI* aURI)
 {
   nsAutoCString path;
   aURI->GetPathQueryRef(path);
 
   int32_t f = path.FindChar('#');
-  if (f >= 0)
-    path.SetLength(f);
+  if (f >= 0) path.SetLength(f);
 
   f = path.FindChar('?');
-  if (f >= 0)
-    path.SetLength(f);
+  if (f >= 0) path.SetLength(f);
 
   ToLowerCase(path);
   return path;
@@ -129,8 +130,9 @@ AboutRedirector::LoadActivityStreamPrefs()
   if (!sASEnabledCacheInited) {
     Preferences::AddBoolVarCache(&AboutRedirector::sActivityStreamEnabled,
                                  "browser.newtabpage.activity-stream.enabled");
-    Preferences::AddBoolVarCache(&AboutRedirector::sActivityStreamAboutHomeEnabled,
-                                 "browser.newtabpage.activity-stream.aboutHome.enabled");
+    Preferences::AddBoolVarCache(
+        &AboutRedirector::sActivityStreamAboutHomeEnabled,
+        "browser.newtabpage.activity-stream.aboutHome.enabled");
     sASEnabledCacheInited = true;
   }
 }
@@ -153,15 +155,16 @@ AboutRedirector::NewChannel(nsIURI* aURI,
 
   LoadActivityStreamPrefs();
 
-  for (auto & redir : kRedirMap) {
+  for (auto& redir : kRedirMap) {
     if (!strcmp(path.get(), redir.id)) {
       nsAutoCString url;
 
       if (path.EqualsLiteral("newtab") ||
-          (path.EqualsLiteral("home") && sActivityStreamEnabled && sActivityStreamAboutHomeEnabled)) {
+          (path.EqualsLiteral("home") && sActivityStreamEnabled &&
+           sActivityStreamAboutHomeEnabled)) {
         // let the aboutNewTabService decide where to redirect
         nsCOMPtr<nsIAboutNewTabService> aboutNewTabService =
-          do_GetService("@mozilla.org/browser/aboutnewtab-service;1", &rv);
+            do_GetService("@mozilla.org/browser/aboutnewtab-service;1", &rv);
         NS_ENSURE_SUCCESS(rv, rv);
         rv = aboutNewTabService->GetDefaultURL(url);
         NS_ENSURE_SUCCESS(rv, rv);
@@ -181,13 +184,12 @@ AboutRedirector::NewChannel(nsIURI* aURI,
       // load info which forces the channel prncipal to reflect the displayed
       // URL rather then being the systemPrincipal.
       bool isUIResource = false;
-      rv = NS_URIChainHasFlags(tempURI, nsIProtocolHandler::URI_IS_UI_RESOURCE,
-                               &isUIResource);
+      rv = NS_URIChainHasFlags(
+          tempURI, nsIProtocolHandler::URI_IS_UI_RESOURCE, &isUIResource);
       NS_ENSURE_SUCCESS(rv, rv);
 
-      rv = NS_NewChannelInternal(getter_AddRefs(tempChannel),
-                                 tempURI,
-                                 aLoadInfo);
+      rv = NS_NewChannelInternal(
+          getter_AddRefs(tempChannel), tempURI, aLoadInfo);
       NS_ENSURE_SUCCESS(rv, rv);
 
       if (!isUIResource) {
@@ -204,7 +206,7 @@ AboutRedirector::NewChannel(nsIURI* aURI,
 }
 
 NS_IMETHODIMP
-AboutRedirector::GetURIFlags(nsIURI *aURI, uint32_t *result)
+AboutRedirector::GetURIFlags(nsIURI* aURI, uint32_t* result)
 {
   NS_ENSURE_ARG_POINTER(aURI);
 
@@ -212,18 +214,17 @@ AboutRedirector::GetURIFlags(nsIURI *aURI, uint32_t *result)
 
   LoadActivityStreamPrefs();
 
-  for (auto & redir : kRedirMap) {
+  for (auto& redir : kRedirMap) {
     if (name.Equals(redir.id)) {
-
       // Once ActivityStream is fully rolled out and we've removed Tiles,
       // this special case can go away and the flag can just become part
       // of the normal about:newtab entry in kRedirMap.
-      if (name.EqualsLiteral("newtab") || (name.EqualsLiteral("home") && sActivityStreamAboutHomeEnabled)) {
+      if (name.EqualsLiteral("newtab") ||
+          (name.EqualsLiteral("home") && sActivityStreamAboutHomeEnabled)) {
         if (sActivityStreamEnabled) {
-          *result = redir.flags |
-            nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
-            nsIAboutModule::ENABLE_INDEXED_DB |
-            nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT;
+          *result = redir.flags | nsIAboutModule::URI_MUST_LOAD_IN_CHILD |
+                    nsIAboutModule::ENABLE_INDEXED_DB |
+                    nsIAboutModule::URI_SAFE_FOR_UNTRUSTED_CONTENT;
           return NS_OK;
         }
       }
@@ -237,16 +238,15 @@ AboutRedirector::GetURIFlags(nsIURI *aURI, uint32_t *result)
 }
 
 nsresult
-AboutRedirector::Create(nsISupports *aOuter, REFNSIID aIID, void **result)
+AboutRedirector::Create(nsISupports* aOuter, REFNSIID aIID, void** result)
 {
   AboutRedirector* about = new AboutRedirector();
-  if (about == nullptr)
-    return NS_ERROR_OUT_OF_MEMORY;
+  if (about == nullptr) return NS_ERROR_OUT_OF_MEMORY;
   NS_ADDREF(about);
   nsresult rv = about->QueryInterface(aIID, result);
   NS_RELEASE(about);
   return rv;
 }
 
-} // namespace browser
-} // namespace mozilla
+}  // namespace browser
+}  // namespace mozilla

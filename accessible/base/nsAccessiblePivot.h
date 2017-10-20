@@ -21,13 +21,14 @@ class RuleCache;
  */
 class nsAccessiblePivot final : public nsIAccessiblePivot
 {
-public:
+ public:
   typedef mozilla::a11y::Accessible Accessible;
 
   explicit nsAccessiblePivot(Accessible* aRoot);
 
   NS_DECL_CYCLE_COLLECTING_ISUPPORTS
-  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsAccessiblePivot, nsIAccessiblePivot)
+  NS_DECL_CYCLE_COLLECTION_CLASS_AMBIGUOUS(nsAccessiblePivot,
+                                           nsIAccessiblePivot)
 
   NS_DECL_NSIACCESSIBLEPIVOT
 
@@ -36,18 +37,19 @@ public:
    */
   Accessible* Position() { return mPosition; }
 
-private:
+ private:
   ~nsAccessiblePivot();
   nsAccessiblePivot() = delete;
   nsAccessiblePivot(const nsAccessiblePivot&) = delete;
-  void operator = (const nsAccessiblePivot&) = delete;
+  void operator=(const nsAccessiblePivot&) = delete;
 
   /*
    * Notify all observers on a pivot change. Return true if it has changed and
    * observers have been notified.
    */
   bool NotifyOfPivotChange(Accessible* aOldAccessible,
-                           int32_t aOldStart, int32_t aOldEnd,
+                           int32_t aOldStart,
+                           int32_t aOldEnd,
                            PivotMoveReason aReason,
                            bool aIsFromUserInput);
 
@@ -55,7 +57,6 @@ private:
    * Check to see that the given accessible is a descendant of given ancestor
    */
   bool IsDescendantOf(Accessible* aAccessible, Accessible* aAncestor);
-
 
   /*
    * Search in preorder for the first accessible to match the rule.
@@ -95,7 +96,8 @@ private:
   /*
    * Update the pivot, and notify observers. Return true if it moved.
    */
-  bool MovePivotInternal(Accessible* aPosition, PivotMoveReason aReason,
+  bool MovePivotInternal(Accessible* aPosition,
+                         PivotMoveReason aReason,
                          bool aIsFromUserInput);
 
   /*
@@ -107,8 +109,10 @@ private:
    * the search from there.
    *
    */
-  Accessible* AdjustStartPosition(Accessible* aAccessible, RuleCache& aCache,
-                                  uint16_t* aFilterResult, nsresult* aResult);
+  Accessible* AdjustStartPosition(Accessible* aAccessible,
+                                  RuleCache& aCache,
+                                  uint16_t* aFilterResult,
+                                  nsresult* aResult);
 
   /*
    * The root accessible.

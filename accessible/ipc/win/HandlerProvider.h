@@ -24,14 +24,14 @@ namespace mscom {
 
 class StructToStream;
 
-} // namespace mscom
+}  // namespace mscom
 
 namespace a11y {
 
-class HandlerProvider final : public IGeckoBackChannel
-                            , public mscom::IHandlerProvider
+class HandlerProvider final : public IGeckoBackChannel,
+                              public mscom::IHandlerProvider
 {
-public:
+ public:
   HandlerProvider(REFIID aIid, mscom::InterceptorTargetPtr<IUnknown> aTarget);
 
   // IUnknown
@@ -44,35 +44,37 @@ public:
   STDMETHODIMP GetHandlerPayloadSize(NotNull<DWORD*> aOutPayloadSize) override;
   STDMETHODIMP WriteHandlerPayload(NotNull<IStream*> aStream) override;
   STDMETHODIMP_(REFIID) MarshalAs(REFIID aIid) override;
-  STDMETHODIMP_(REFIID) GetEffectiveOutParamIid(REFIID aCallIid,
-                                                ULONG aCallMethod) override;
-  STDMETHODIMP NewInstance(REFIID aIid,
-                           mscom::InterceptorTargetPtr<IUnknown> aTarget,
-                           NotNull<mscom::IHandlerProvider**> aOutNewPayload) override;
+  STDMETHODIMP_(REFIID)
+  GetEffectiveOutParamIid(REFIID aCallIid, ULONG aCallMethod) override;
+  STDMETHODIMP NewInstance(
+      REFIID aIid,
+      mscom::InterceptorTargetPtr<IUnknown> aTarget,
+      NotNull<mscom::IHandlerProvider**> aOutNewPayload) override;
 
   // IGeckoBackChannel
   STDMETHODIMP put_HandlerControl(long aPid, IHandlerControl* aCtrl) override;
   STDMETHODIMP Refresh(IA2Data* aOutData) override;
 
-private:
+ private:
   ~HandlerProvider() = default;
 
-  void SetHandlerControlOnMainThread(DWORD aPid,
-                                     mscom::ProxyUniquePtr<IHandlerControl> aCtrl);
+  void SetHandlerControlOnMainThread(
+      DWORD aPid, mscom::ProxyUniquePtr<IHandlerControl> aCtrl);
   void GetAndSerializePayload(const MutexAutoLock&);
   void BuildIA2Data(IA2Data* aOutIA2Data);
   static void ClearIA2Data(IA2Data& aData);
   bool IsTargetInterfaceCacheable();
 
-  Atomic<uint32_t>                  mRefCnt;
-  Mutex                             mMutex; // Protects mSerializer
-  const IID                         mTargetUnkIid;
-  mscom::InterceptorTargetPtr<IUnknown> mTargetUnk; // Constant, main thread only
-  UniquePtr<mscom::StructToStream>  mSerializer;
-  RefPtr<IUnknown>                  mFastMarshalUnk;
+  Atomic<uint32_t> mRefCnt;
+  Mutex mMutex;  // Protects mSerializer
+  const IID mTargetUnkIid;
+  mscom::InterceptorTargetPtr<IUnknown>
+      mTargetUnk;  // Constant, main thread only
+  UniquePtr<mscom::StructToStream> mSerializer;
+  RefPtr<IUnknown> mFastMarshalUnk;
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
-#endif // mozilla_a11y_HandlerProvider_h
+#endif  // mozilla_a11y_HandlerProvider_h

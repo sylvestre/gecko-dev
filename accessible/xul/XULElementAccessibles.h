@@ -19,7 +19,7 @@ class XULLabelTextLeafAccessible;
  */
 class XULLabelAccessible : public HyperTextAccessibleWrap
 {
-public:
+ public:
   XULLabelAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -30,11 +30,11 @@ public:
 
   void UpdateLabelValue(const nsString& aValue);
 
-protected:
+ protected:
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
 
-private:
+ private:
   RefPtr<XULLabelTextLeafAccessible> mValueTextLeaf;
 };
 
@@ -44,33 +44,32 @@ Accessible::AsXULLabel()
   return IsXULLabel() ? static_cast<XULLabelAccessible*>(this) : nullptr;
 }
 
-
 /**
  * Used to implement text interface on XUL label accessible in case when text
  * is provided by @value attribute (no underlying text frame).
  */
 class XULLabelTextLeafAccessible final : public TextLeafAccessibleWrap
 {
-public:
-  XULLabelTextLeafAccessible(nsIContent* aContent, DocAccessible* aDoc) :
-    TextLeafAccessibleWrap(aContent, aDoc)
-  { mStateFlags |= eSharedNode; }
+ public:
+  XULLabelTextLeafAccessible(nsIContent* aContent, DocAccessible* aDoc)
+      : TextLeafAccessibleWrap(aContent, aDoc)
+  {
+    mStateFlags |= eSharedNode;
+  }
 
-  virtual ~XULLabelTextLeafAccessible() { }
+  virtual ~XULLabelTextLeafAccessible() {}
 
   // Accessible
   virtual a11y::role NativeRole() override;
   virtual uint64_t NativeState() override;
 };
 
-
 /**
  * Used for XUL tooltip element.
  */
 class XULTooltipAccessible : public LeafAccessible
 {
-
-public:
+ public:
   XULTooltipAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -80,8 +79,7 @@ public:
 
 class XULLinkAccessible : public XULLabelAccessible
 {
-
-public:
+ public:
   XULLinkAccessible(nsIContent* aContent, DocAccessible* aDoc);
 
   // Accessible
@@ -100,17 +98,19 @@ public:
   virtual uint32_t EndOffset() override;
   virtual already_AddRefed<nsIURI> AnchorURIAt(uint32_t aAnchorIndex) override;
 
-protected:
+ protected:
   virtual ~XULLinkAccessible();
 
   // Accessible
   virtual ENameValueFlag NativeName(nsString& aName) override;
 
-  enum { eAction_Jump = 0 };
-
+  enum
+  {
+    eAction_Jump = 0
+  };
 };
 
-} // namespace a11y
-} // namespace mozilla
+}  // namespace a11y
+}  // namespace mozilla
 
 #endif
